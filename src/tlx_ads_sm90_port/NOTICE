@@ -1,0 +1,12 @@
+This directory contains an SM90 fallback derived from the ADS Model Kernel
+Library's TLX RMSNorm+matmul implementation:
+
+  https://github.com/facebookresearch/ads_model_kernel_library
+  multi_cta_norm_fusion/src/tlx_rmsnorm_matmul.py
+  upstream commit: 2889aefba0d03b3eecf779eed9f4097066ecdc5d
+  upstream source SHA-256:
+  26f66c287a957fa324eca24473509823b84779111acd05b07d0ea10061de4a29
+
+Copyright Meta Platforms, Inc. and affiliates. The upstream source and this
+derived fallback are licensed under Apache-2.0; see LICENSE-APACHE-2.0.
+The fallback is modified for SM90 and is not the upstream Blackwell kernel.

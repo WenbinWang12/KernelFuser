@@ -30,6 +30,12 @@ local filesystem paths are deliberately excluded from this public repository.
 The values are operator-level measurements. They do not imply model-level or
 end-to-end acceleration.
 
+The repository also publishes first-party Hopper TLX/Triton SwiGLU backends
+and an ADS-attributed SM90 RMSNorm+GEMM fallback. Those kernel sources are not
+included in the E1, E3a, or E4 result tables above; the isolated pilot scripts
+are provided for independent correctness and timing runs, not as additional
+published aggregate claims.
+
 ## Aggregates
 
 Geometric means are computed over the listed per-configuration speedup ratios;
