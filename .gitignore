@@ -1,0 +1,27 @@
+# Local run outputs can contain hostnames, device identifiers, and trace paths.
+outputs/
+traces/
+receipts/
+*.json
+*.jsonl
+*.log
+*.chrome_trace.json
+*.chrome_trace.json.gz
+*.tgz
+*.zip
+*.pt
+*.pth
+*.safetensors
+.env
+.env.*
+*.env
+.envrc
+credentials.*
+secrets.*
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+Thumbs.db
