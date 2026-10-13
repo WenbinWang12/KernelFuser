@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Isolated, same-attention-kernel Q/K RMSNorm fusion experiment.
 
 The primary comparison is native separate RMSNorm + fixed-launch Flash vs the
@@ -584,4 +584,166 @@ def main():
  rec['status']='tested_pass' if rec_rows and all(r.get('publication_gate',{}).get('pass') is True and r.get('status')=='tested_pass' for r in rec_rows) else 'tested_invalid'
  rec['publication_eligible']=rec['status']=='tested_pass'
  out.write_text(json.dumps(rec,indent=2)); print('COMPLETE',rec['status'],flush=True)
-if __name__=='__main__':main()
+
+
+# H100 refinement APIs and development-only verification.
+import sys
+from fusion_harness import paired as device_paired, compiler_evidence
+@triton.jit
+def prepare_factored_kernel(Q,K,GQ,GK,INV,KN,
+                            QR:tl.constexpr,KR:tl.constexpr,D:tl.constexpr,R:tl.constexpr):
+    tl.static_assert(D==128 or D==256)
+    pid=tl.program_id(0);j=tl.arange(0,D)
+    if pid<tl.cdiv(QR,R):
+        row=pid*R+tl.arange(0,R)
+        x=tl.load(Q+row[:,None]*D+j[None,:],row[:,None]<QR,0).to(tl.float32)  # noqa: TR003 -- exact D columns; row tails are masked
+        inverse=tl.rsqrt(tl.sum(x*x,1)/D+1e-6)
+        tl.store(INV+row,inverse,row<QR)
+    else:
+        row=(pid-tl.cdiv(QR,R))*R+tl.arange(0,R)
+        x=tl.load(K+row[:,None]*D+j[None,:],row[:,None]<KR,0).to(tl.float32)  # noqa: TR003 -- exact D columns; row tails are masked
+        gq=tl.load(GQ+j).to(tl.float32)  # noqa: TR003 -- gamma has exactly D elements
+        gk=tl.load(GK+j).to(tl.float32)  # noqa: TR003 -- gamma has exactly D elements
+        inverse=tl.rsqrt(tl.sum(x*x,1)/D+1e-6)
+        value=(x*inverse[:,None]*gk[None,:]*gq[None,:]).to(tl.bfloat16)
+        tl.store(KN+row[:,None]*D+j[None,:],value,row[:,None]<KR)
+
+
+@triton.jit
+def factored_attention_kernel(Q,K,V,INV,O,
+                              S:tl.constexpr,D:tl.constexpr,HQ:tl.constexpr,HK:tl.constexpr,
+                              CAUSAL:tl.constexpr,BM:tl.constexpr,BN:tl.constexpr):
+    tl.static_assert(D==128 or D==256)
+    pid=tl.program_id(0);h=tl.program_id(1);b=tl.program_id(2);kh=h//(HQ//HK)
+    mi=pid*BM+tl.arange(0,BM);j=tl.arange(0,D)
+    qrow=b*HQ*S+h*S+mi
+    q=tl.load(Q+qrow[:,None]*D+j[None,:],mi[:,None]<S,0)  # noqa: TR003 -- exact D columns; sequence rows are masked
+    temperature=tl.load(INV+qrow,mi<S,1)*(D**-.5*1.4426950408889634)
+    acc=tl.zeros((BM,D),tl.float32);maximum=tl.full((BM,),float('-inf'),tl.float32)
+    denominator=tl.zeros((BM,),tl.float32)
+    end=S
+    if CAUSAL:end=tl.minimum((pid+1)*BM,S)
+    for start in range(0,end,BN):
+        ni=start+tl.arange(0,BN);base=(b*HK*S+kh*S+ni)*D
+        key=tl.load(K+base[:,None]+j[None,:],ni[:,None]<S,0)  # noqa: TR003 -- exact D columns; sequence rows are masked
+        scores=tl.dot(q,tl.trans(key),input_precision='ieee')*temperature[:,None]  # noqa: TR011 -- modern precision API
+        scores=tl.where(ni[None,:]<S,scores,float('-inf'))
+        if CAUSAL:scores=tl.where(mi[:,None]>=ni[None,:],scores,float('-inf'))
+        newmax=tl.maximum(maximum,tl.max(scores,1));alpha=tl.exp2(maximum-newmax)
+        probability=tl.exp2(scores-newmax[:,None])
+        denominator=denominator*alpha+tl.sum(probability,1);acc=acc*alpha[:,None]
+        value=tl.load(V+base[:,None]+j[None,:],ni[:,None]<S,0)  # noqa: TR003 -- exact D columns; sequence rows are masked
+        acc=tl.dot(probability.to(tl.bfloat16),value,acc,input_precision='ieee')  # noqa: TR011 -- modern precision API
+        maximum=newmax
+    tl.store(O+qrow[:,None]*D+j[None,:],(acc/denominator[:,None]).to(tl.bfloat16),mi[:,None]<S)
+
+
+def launch_factored_attention(inputs,out,inv,kn,*,causal=False,bm=64,bn=64):
+    """Two-kernel no-RoPE launch, with preallocated FP32 INV [B,Hq,S].
+
+    Inputs use the legacy five-tensor Q,K,V,GQ,GK order. KN is BF16 like K.
+    Gamma vectors are shared across heads, as in the historical model shapes.
+    """
+    q,k,v,gq,gk=inputs[:5];b,h,s,d=q.shape
+    qr=q.numel()//d;kr=k.numel()//d
+    prepare_factored_kernel[(triton.cdiv(qr,4)+triton.cdiv(kr,4),)](
+        q,k,gq,gk,inv,kn,qr,kr,d,4,num_warps=4)
+    return factored_attention_kernel[(triton.cdiv(s,bm),h,b)](
+        q,kn,v,inv,out,s,d,h,k.shape[1],causal,bm,bn,num_warps=4,num_stages=1)
+
+
+def verify_factored_refinement(args):
+    import e1_rope_publication_v1 as attention
+    args.out.mkdir(parents=True, exist_ok=True)
+    census = json.loads(args.census.read_text())
+    rec = {'environment': {'triton': triton.__version__, 'torch': torch.__version__}, 'rows': [], 'source_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    mon = attention.ExclusiveMonitor()
+    rec['gpu_before'] = attention.gpu_snapshot()
+    mon.start()
+    torch.backends.cuda.matmul.allow_tf32 = False
+    try:
+        for r in census['rows']:
+            if r['rotary'] or r['model'] not in ('Gemma-3-4B', 'Gemma-3-12B'):
+                continue
+            model = r['model']
+            b, s, causal = r['shape']
+            xs = attention.refinement_inputs(model, b, s, 1909, False)
+            ref = attention.refinement_oracle(xs, causal, False)
+            arms = {}
+            outs = {}
+            checks = {}
+            evidence = {}
+            for tag, label in [('previous_fused', r['selected_fused']), ('unfused', r['selected_unfused'])]:
+                mode, bm, bn, gather = label.split('_')
+                bm = int(bm)
+                bn = int(bn)
+                gather = bool(int(gather[1:]))
+                out = torch.empty_like(xs[0])
+                qn = torch.empty_like(xs[0])
+                kn = torch.empty_like(xs[1])
+                outs[tag] = out
+                arms[tag] = lambda out=out, qn=qn, kn=kn, mode=mode, bm=bm, bn=bn, gather=gather: attention.launch_attention(xs, out, causal=causal, mode=mode, bm=bm, bn=bn, gather=gather, rope=False, hf_norm=False, qn=qn, kn=kn)
+            for bm, bn in ((64, 64), (64, 128), (32, 64)):
+                tag = f'factored_{bm}_{bn}'
+                out = torch.empty_like(xs[0])
+                kn = torch.empty_like(xs[1])
+                inv = torch.empty(xs[0].shape[:-1], device='cuda', dtype=torch.float32)
+                outs[tag] = out
+                arms[tag] = lambda out=out, inv=inv, kn=kn, bm=bm, bn=bn: launch_factored_attention(xs, out, inv, kn, causal=causal, bm=bm, bn=bn)
+            for tag, call in list(arms.items()):
+                compiled = call()
+                checks[tag] = attention.metric(outs[tag], ref)
+                evidence[tag] = compiler_evidence(compiled, args.out / 'compiler', f"{len(rec['rows'])}_{tag}")
+                if not checks[tag]['pass']:
+                    del arms[tag]
+            assert checks['unfused']['pass'] and checks['previous_fused']['pass']
+            candidates = [n for n in arms if n.startswith('factored')]
+            if not candidates:
+                raise AssertionError((model, s, checks))
+            initial = device_paired(arms, rounds=3, samples=5, replays=20, seed=11109)
+            selected = min(candidates, key=lambda n: initial['arms'][n]['median_us'])
+            retest = device_paired({n: arms[n] for n in ('previous_fused', 'unfused', selected)}, rounds=5, samples=7, replays=20, seed=12109)
+            seed_checks = []
+            _, bm, bn = selected.split('_')
+            for seed in (2909, 3909):
+                ys = attention.refinement_inputs(model, b, s, seed, False)
+                reference = attention.refinement_oracle(ys, causal, False)
+                out = torch.empty_like(ys[0])
+                kn = torch.empty_like(ys[1])
+                inv = torch.empty(ys[0].shape[:-1], device='cuda', dtype=torch.float32)
+                launch_factored_attention(ys, out, inv, kn, causal=causal, bm=int(bm), bn=int(bn))
+                check = attention.metric(out, reference)
+                assert check['pass'], (model, s, seed, check)
+                seed_checks.append({'seed': seed, **check})
+            row = {'model': model, 'shape': r['shape'], 'correctness': checks, 'compiler': evidence, 'selected': selected, 'initial': initial, 'retest': retest, 'additional_seed_checks': seed_checks}
+            rec['rows'].append(row)
+            (args.out / 'results.json').write_text(json.dumps(rec, indent=2) + '\n')
+            t = retest['arms']
+            print(len(rec['rows']), model, r['shape'], selected, 'vs unfused', round(t['unfused']['median_us'] / t[selected]['median_us'], 3), flush=True)
+        rec['tail_checks'] = []
+        for s in (33, 129):
+            for causal in (False, True):
+                xs = attention.refinement_inputs('Gemma-3-4B', 1, s, 13109, False)
+                ref = attention.refinement_oracle(xs, causal, False)
+                out = torch.empty_like(xs[0])
+                kn = torch.empty_like(xs[1])
+                inv = torch.empty(xs[0].shape[:-1], device='cuda', dtype=torch.float32)
+                launch_factored_attention(xs, out, inv, kn, causal=causal, bn=64)
+                check = attention.metric(out, ref)
+                assert check['pass'], check
+                rec['tail_checks'].append({'s': s, 'causal': causal, **check})
+        rec['status'] = 'passed'
+    finally:
+        rec['gpu_observations'] = mon.finish()
+        rec['gpu_after'] = attention.gpu_snapshot()
+        (args.out / 'results.json').write_text(json.dumps(rec, indent=2) + '\n')
+
+if __name__ == '__main__':
+    if '--refine' in sys.argv:
+        parser=argparse.ArgumentParser(description='H100 no-RoPE scalar factoring')
+        parser.add_argument('--refine',action='store_true')
+        parser.add_argument('--out',type=Path,required=True)
+        parser.add_argument('--census',type=Path,required=True)
+        verify_factored_refinement(parser.parse_args())
+    else:
+        main()
