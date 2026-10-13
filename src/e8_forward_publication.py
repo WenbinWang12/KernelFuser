@@ -119,4 +119,99 @@ def main():
         except Exception as e: r={'geometry':g,'status':'tested_invalid','error':repr(e),'publication_gate':{'pass':False,'reason':'exception'}}
         rec['rows'].append(r); out.write_text(json.dumps(rec,indent=2,default=str)+'\n'); print('DONE',r['status'],flush=True)
     rec['status']='tested_pass' if rec['rows'] and all(r['status']=='tested_pass' for r in rec['rows']) else 'tested_invalid'; rec['publication_eligible']=rec['status']=='tested_pass'; out.write_text(json.dumps(rec,indent=2,default=str)+'\n'); print(rec['status'],rec['publication_eligible'],len(rec['rows']))
-if __name__=='__main__': main()
+
+
+# H100 refinement APIs and development-only verification.
+import sys
+def verify_h100_unfused(args):
+    import triton
+    import e1_rope_publication_v1 as rope
+    from tlx_pilot.tlx_swiglu_hopper import launch_swiglu
+    from tlx_ads_sm90_port.ads_sm90_rmsnorm_matmul import launch_rms_gemm, launch_rms_gemm_tlx, rstd_kernel
+    from fusion_harness import paired as device_paired, metric as kernel_metric
+    torch.manual_seed(1909)
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch._dynamo.config.cache_size_limit = 512
+    args.out.mkdir(parents=True, exist_ok=True)
+    rec = {'environment': {'torch': torch.__version__, 'triton': triton.__version__, 'gpu': torch.cuda.get_device_name(), 'cuda': torch.version.cuda}, 'rows': []}
+    before = rope.gpu_snapshot()
+    mon = rope.ExclusiveMonitor()
+    mon.start()
+
+    def save():
+        (args.out / 'results.json').write_text(json.dumps(rec, indent=2) + '\n')
+
+    def finish(row, arms):
+        assert all((c['pass'] for c in row['correctness'].values())), row
+        row['initial'] = device_paired(arms, rounds=5, samples=7, replays=20, seed=7109)
+        row['retest'] = device_paired(arms, rounds=5, samples=7, replays=20, seed=17109)
+        rec['rows'].append(row)
+        save()
+        print(row['operation'], row['shape'], {n: round(v['median_us'], 3) for n, v in row['retest']['arms'].items()}, flush=True)
+    try:
+        for n in (2048 * 3072, 2048 * 14336):
+            for backward in (False, True):
+                g = torch.randn(n, device='cuda', dtype=torch.bfloat16)
+                u, dy = (torch.randn_like(g), torch.randn_like(g))
+                y, dg, du = (torch.empty_like(g), torch.empty_like(g), torch.empty_like(g))
+
+                def unfused():
+                    gf, uf = (g.float(), u.float())
+                    if not backward:
+                        return (torch.nn.functional.silu(gf) * uf).bfloat16()
+                    s = torch.sigmoid(gf)
+                    df = dy.float()
+                    return ((df * uf * s * (1 + gf * (1 - s))).bfloat16(), (df * gf * s).bfloat16())
+
+                def fused():
+                    return launch_swiglu(g, u, dy, y, dg, du, backend='tlx', block=1024, backward=backward, torch_rounding=False, fast=True)
+                reference = unfused()
+                fused()
+                checks = [kernel_metric(o, r) for o, r in zip((dg, du) if backward else (y,), reference if backward else (reference,))]
+                finish({'operation': 'swiglu_backward' if backward else 'swiglu_forward', 'shape': [n], 'baseline': 'eager unfused FP32 pointwise operations, BF16 input/output', 'correctness': {'fused': {'pass': all((x['pass'] for x in checks)), 'outputs': checks}}}, {'unfused_eager': unfused, 'fused_tlx': fused})
+        for m, k, n in ((128, 1024, 3072), (512, 1024, 3072), (17, 73, 65), (33, 130, 66)):
+            x = torch.randn((m, k), device='cuda', dtype=torch.bfloat16)
+            w = torch.randn((k, n), device='cuda', dtype=torch.bfloat16)
+            gamma = torch.ones(k, device='cuda', dtype=torch.bfloat16)
+            xn = torch.empty_like(x)
+            base = torch.empty((m, n), device='cuda', dtype=torch.bfloat16)
+            out = torch.empty_like(base)
+            rstd = torch.empty(m, device='cuda', dtype=torch.float32)
+            ref = (x.float() * torch.rsqrt(x.float().square().mean(-1, keepdim=True) + 1e-06) @ w.float()).bfloat16()
+            raw = torch.empty((m, n), device='cuda', dtype=torch.float32)
+            scaled = torch.empty_like(raw)
+
+            def unfused_fp32():
+                xf = x.float()
+                normalized = xf * torch.rsqrt(xf.square().mean(-1, keepdim=True) + 1e-06)
+                return (normalized @ w.float()).bfloat16()
+
+            def unfused():
+                rstd_kernel[m,](x, rstd, k, 1e-06, triton.next_power_of_2(k), num_warps=4)
+                torch.mm(x, w, out=raw, out_dtype=torch.float32)
+                torch.mul(raw, rstd[:, None], out=scaled)
+                base.copy_(scaled)
+                return base
+
+            def fused():
+                if k % 2 or n % 2:
+                    return launch_rms_gemm(x, w, out, bm=16, bn=64)
+                return launch_rms_gemm_tlx(x, w, out, rstd)
+            unfused()
+            fused()
+            finish({'operation': 'rmsnorm_gemm', 'shape': [m, k, n], 'baseline': 'cuBLAS raw BF16 GEMM with FP32 output + separate norm-scale multiplication and BF16 cast', 'candidate': 'TLX row-scale prepass + GEMM epilogue; Triton fallback for odd strides', 'correctness': {'unfused': kernel_metric(base, ref, atol=0.15, rtol=0.02), 'fused': kernel_metric(out, ref, atol=0.15, rtol=0.02), 'unfused_fp32': kernel_metric(unfused_fp32(), ref, atol=0.15, rtol=0.02)}}, {'unfused_norm_cublas': unfused, 'unfused_fp32_norm_before_gemm': unfused_fp32, 'fused_tlx_or_tail_fallback': fused})
+        rec['status'] = 'passed'
+    finally:
+        rec['gpu_before'] = before
+        rec['gpu_observations'] = mon.finish()
+        rec['gpu_after'] = rope.gpu_snapshot()
+        save()
+
+if __name__ == '__main__':
+    if '--h100-unfused' in sys.argv:
+        parser=argparse.ArgumentParser(description='H100 SwiGLU/RMSNorm-GEMM unfused controls')
+        parser.add_argument('--h100-unfused',action='store_true')
+        parser.add_argument('--out',type=Path,required=True)
+        verify_h100_unfused(parser.parse_args())
+    else:
+        main()

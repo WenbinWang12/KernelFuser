@@ -1,0 +1,9 @@
+device,operation,shape,candidate,baseline,fused_us,unfused_us,initial_speedup,retest_speedup,confirmed_1pct
+H100,swiglu_forward,[6291456],fused_tlx,"eager unfused FP32 pointwise operations, BF16 input/output",7.391999661922455,104.7279953956604,14.142579205492344,14.167748942837958,True
+H100,swiglu_backward,[6291456],fused_tlx,"eager unfused FP32 pointwise operations, BF16 input/output",28.411200642585754,334.3791961669922,11.760905836662356,11.76927368799011,True
+H100,swiglu_forward,[29360128],fused_tlx,"eager unfused FP32 pointwise operations, BF16 input/output",82.28480219841003,527.177619934082,6.406002056266454,6.40674347934774,True
+H100,swiglu_backward,[29360128],fused_tlx,"eager unfused FP32 pointwise operations, BF16 input/output",136.2112045288086,1717.6368713378906,12.610578294720725,12.610099714481354,True
+H100,rmsnorm_gemm,"[128, 1024, 3072]",fused_tlx_or_tail_fallback,cuBLAS raw BF16 GEMM with FP32 output + separate norm-scale multiplication and BF16 cast,7.2304002940654755,11.150400340557098,1.5147734072249146,1.5421553284828582,True
+H100,rmsnorm_gemm,"[512, 1024, 3072]",fused_tlx_or_tail_fallback,cuBLAS raw BF16 GEMM with FP32 output + separate norm-scale multiplication and BF16 cast,11.35839968919754,18.0976003408432,1.588599615241209,1.5933230768463809,True
+H100,rmsnorm_gemm,"[17, 73, 65]",fused_tlx_or_tail_fallback,cuBLAS raw BF16 GEMM with FP32 output + separate norm-scale multiplication and BF16 cast,3.60959991812706,9.996800124645233,2.7788634018129774,2.7695036434487585,True
+H100,rmsnorm_gemm,"[33, 130, 66]",fused_tlx_or_tail_fallback,cuBLAS raw BF16 GEMM with FP32 output + separate norm-scale multiplication and BF16 cast,4.456000030040741,8.41440036892891,1.8849873373835242,1.8883304111764059,True
