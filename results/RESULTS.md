@@ -8,6 +8,10 @@ process IDs, or private paths.
 
 - `b200_ads_blackwell_snapshot.csv`: ten B200 shapes comparing an ADS
   Blackwell source snapshot, improved Triton, and separate vendor controls.
+- `b200_ads_blackwell_tuned.csv`: a fresh ten-shape comparison after adding
+  the eight-subtile reduction candidate to the schedule search.
+- `b200_ads_m128_ablation.csv`: sixteen controlled M128 variants, paired
+  timings, numerical gates and selected sanitized compiler/profile metrics.
 - `h100_attention_refined.csv`: 168 final H100 attention selections and
   fingerprints of the relocated kernel definitions.
 - `h100_pointwise_gemm_refined.csv`: eight H100 SwiGLU/RMSNorm-GEMM comparisons.
@@ -221,7 +225,7 @@ after the run. Compare ratios within this run; the H100 compiler version
 differs. Inputs are synthetic unscaled Gaussian BF16 matrices, with zero,
 small-constant and unit-constant rows added to correctness checks.
 
-### Independent retest results
+### Original six-configuration search: independent retest results
 
 | M | K | N | ADS TLX (us) | Improved Triton (us) | Fastest vendor control (us) | ADS/vendor |
 |---:|---:|---:|---:|---:|---:|---:|
@@ -307,10 +311,96 @@ differences accompany the larger-shape gains.
 
 At M128/K1024/N3072, both selected kernels use BM64/BN64/BK64. ADS has 256
 threads and 65924 bytes of shared memory, versus 128 threads and 49168
-bytes for Triton; its static PTX has 52 barrier lines versus 27. The extra
-pipeline machinery is a plausible source of overhead on this small shape.
-These are compiler resource observations, not measured occupancy or a
-causal ablation. At larger shapes, ADS wins despite using more shared memory.
+bytes for Triton; its static PTX has 52 barrier lines versus 27. The controlled
+follow-up below identifies excessive subdivision of the normalization
+reduction as a recoverable cause of the small-shape regression.
+
+### M128 root cause and schedule improvement
+
+The selected schedule divided each BK64 activation tile into sixteen
+four-element reduction subtiles. Across sixteen K iterations, this creates
+256 reduction subtiles per output tile. Its gamma-free normalization is
+computed alongside GEMM and applied to the output. With BN64, the same input
+row reduction is repeated across 48 output tiles; the unfused row-scale
+control computes one inverse-RMS value per row. Sharing the activation load
+does not eliminate that repeated reduction and synchronization work.
+
+Changing only `NUM_X2_SUBTILES` from 16 to 8 reduces the subdivision to 128
+subtiles per output tile. In a randomized paired ablation with three
+correctness seeds and an independent retest:
+
+| Variant | Retest (us) | Interpretation |
+|---|---:|---|
+| Original ADS, 16 reduction subtiles | 7.917 | Original regression reproduced |
+| ADS, 8 reduction subtiles | 6.267 | 20.8% less latency; 1.180x vs unfused |
+| ADS, 1 reduction subtile | 6.888 | Fewer subtiles is not monotonically faster |
+| ADS, two shared-memory buffers | 7.922 | Buffer count alone does not help |
+| ADS, one tensor-memory buffer | 7.888 | Buffer count alone does not help |
+| ADS, BK128 and two shared-memory buffers | 6.549 | Fewer K iterations also help |
+| ADS, BN32 | 11.800 | More output blocks increases total work |
+| Improved Triton | 7.213 | Same paired experiment |
+| Unfused inverse RMS + cuBLAS + scale | 7.394 | Same paired experiment |
+| ADS GEMM only, normalization disabled | 5.970 | Different operation; diagnostic only |
+
+Disabling normalization also removes its shared-buffer participation, so
+the 1.947 us difference measures its combined reduction/pipeline cost, not
+just arithmetic. This diagnostic is checked against an unnormalized GEMM
+oracle and is excluded from RMSNorm speedup claims. All sixteen variants
+pass their respective three-seed numerical gates; both timing phases use
+five rounds, seven samples and twenty graph launches per sample.
+
+The eight-subtile schedule keeps 96 blocks, 256 threads per block, 65924
+shared-memory bytes and the same static barrier and Tensor Core instruction
+counts. Static PTX shared-load lines fall from 19 to 11 and shuffle lines
+from 19 to 11. These are static counts, not dynamic instruction totals.
+Nsight Compute reports achieved occupancy of 12.31% originally and 12.09%
+afterward, with theoretical occupancy of 12.50% for both. DRAM throughput
+is only 0.17% and 0.23%, respectively, under the measured cache-reuse policy.
+The unchanged resources and improved latency support reduction scheduling
+as the cause of this recoverable regression, rather than increased occupancy
+or lower HBM traffic. The 96-block grid still cannot cover all 148 SMs, but
+the BN32 ablation shows that increasing block count alone is insufficient.
+
+The existing runner now searches the six original ADS schedules plus the
+eight-subtile candidate. The supplied ADS JIT bodies remain unchanged.
+The complete ablation is in [b200_ads_m128_ablation.csv](b200_ads_m128_ablation.csv).
+
+### Follow-up seven-configuration search: independent retest results
+
+The full ten-shape run was repeated after adding the reduction candidate.
+The table uses only timings from this fresh run. The original measurements
+remain in `b200_ads_blackwell_snapshot.csv`.
+
+| M | K | N | ADS TLX (us) | Improved Triton (us) | Fastest unfused (us) | ADS/unfused |
+|---:|---:|---:|---:|---:|---:|---:|
+| 128 | 1024 | 3072 | 6.245 | 7.216 | 7.310 | 1.171x |
+| 512 | 1024 | 3072 | 9.208 | 9.466 | 9.883 | 1.073x |
+| 512 | 1024 | 4096 | 9.443 | 9.659 | 10.898 | 1.154x |
+| 2048 | 1024 | 4096 | 16.554 | 23.571 | 25.155 | 1.520x |
+| 8192 | 1024 | 4096 | 61.299 | 87.901 | 97.322 | 1.588x |
+| 16384 | 1024 | 4096 | 116.672 | 164.739 | 191.611 | 1.642x |
+| 65536 | 512 | 512 | 40.173 | 66.968 | 112.648 | 2.804x |
+| 131072 | 512 | 512 | 75.573 | 140.326 | 219.331 | 2.902x |
+| 524288 | 512 | 512 | 311.238 | 534.960 | 838.864 | 2.695x |
+| 262144 | 512 | 2048 | 556.742 | 1103.573 | 1252.379 | 2.249x |
+
+ADS exceeds 1% speedup against the faster unfused control in both phases
+for **10/10 shapes**, with M128 gains of 1.166x initially and 1.171x in
+retest. It is faster than Triton on all ten shapes. Triton also exceeds
+the 1% threshold on all ten shapes in this fresh run; its M128 margin is
+only 1.31% in retest and was not confirmed in the earlier run, so that
+particular Triton comparison remains sensitive to measurement variation.
+The new ADS candidate is selected for M128; the other nine ADS schedules
+remain the original selections. Small latency shifts elsewhere are fresh
+measurements, not improvements attributed to this reduction change.
+
+All 144 selected-arm numerical checks and forty kernel traces pass again,
+with maximum relative-L2 of 0.0000825 and selected-GPU exclusivity retained.
+The fixed eight-subtile schedule additionally passes nine checks across
+three seeds and three M/K/N tail shapes, including M129/K1032/N3080, with
+exact agreement against the original ADS wrapper. Gates and comparison
+contracts are unchanged. Both unfused baseline timings are exported in
+[b200_ads_blackwell_tuned.csv](b200_ads_blackwell_tuned.csv).
 
 The ratios include scheduling, tile and implementation differences; they
 do not isolate the contribution of normalization fusion alone. This is a

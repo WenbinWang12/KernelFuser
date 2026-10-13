@@ -119,6 +119,9 @@ distinct CSV filename. The CSV records the source fingerprint and whether
 it matches the pinned version. No ADS source is copied into this repository.
 
 The bounded schedule search keeps the supplied ADS JIT bodies unchanged.
+It includes an eight-subtile RMSNorm reduction schedule to avoid excessive
+shared loads and reductions on short GEMMs. The M128 diagnosis, controlled
+ablations and follow-up results are in [results/RESULTS.md](results/RESULTS.md).
 All timed arms preallocate outputs and scratch. Each case receives three
 correctness seeds, randomized CUDA-graph timings and an independent retest;
 sequence tails and selected-GPU exclusivity are checked before CSV export.
@@ -135,5 +138,4 @@ rounding boundary; its FP32 correctness result is retained as a diagnostic.
 First-party code is MIT unless a directory states otherwise. The ADS-derived
 SM90 fallback carries its Apache-2.0 attribution notice. PyTorch, Triton,
 `fbtriton`, CUDA, and NVIDIA tooling remain separate dependencies.
-
 

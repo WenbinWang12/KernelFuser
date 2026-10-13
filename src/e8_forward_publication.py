@@ -253,6 +253,11 @@ def ads_blackwell_configs(module):
                       EPILOGUE_SUBTILE=epilogue, NUM_CTAS=ctas, SPLIT_K=1,
                       INTERLEAVE_EPILOGUE=0)
         configs.append({k: v for k, v in config.items() if k in accepted})
+    # A finer reduction is expensive for short GEMMs: eight subtiles keeps
+    # the original math and pipeline while reducing shared-load/reduce work.
+    if 'NUM_X2_SUBTILES' in accepted:
+        short_reduction = dict(configs[0], NUM_X2_SUBTILES=8)
+        configs.append(short_reduction)
     return configs
 
 
