@@ -141,6 +141,31 @@ def rstd_kernel(X, R, K: tl.constexpr, EPS: tl.constexpr, BLOCK: tl.constexpr):
 
 
 @triton.jit
+def rmsnorm_rows_kernel(X, Y, M: tl.constexpr, K: tl.constexpr,
+                        EPS: tl.constexpr, BLOCK: tl.constexpr,
+                        ROWS: tl.constexpr = 1):
+    """Separate gamma-free RMSNorm with output precision selected by Y."""
+    row = tl.program_id(0) * ROWS + tl.arange(0, ROWS)
+    k = tl.arange(0, BLOCK)
+    mask = (row[:, None] < M) & (k[None, :] < K)
+    x = tl.load(X + row[:, None] * K + k[None, :], mask, 0).to(tl.float32)
+    inverse = tl.rsqrt(tl.sum(x * x, 1) / K + EPS)
+    tl.store(Y + row[:, None] * K + k[None, :],
+             (x * inverse[:, None]).to(Y.dtype.element_ty), mask)
+
+
+@triton.jit
+def scale_gemm_rows_kernel(X, R, Y, M: tl.constexpr, N: tl.constexpr,
+                           BLOCK: tl.constexpr):
+    """Apply FP32 row scales to a vendor GEMM, then round to BF16."""
+    i = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    mask = i < M * N
+    x = tl.load(X + i, mask, 0)
+    r = tl.load(R + i // N, mask, 0)
+    tl.store(Y + i, (x * r).to(Y.dtype.element_ty), mask)
+
+
+@triton.jit
 def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
                         BM: tl.constexpr, BN: tl.constexpr, BK: tl.constexpr,
                         STAGES: tl.constexpr):

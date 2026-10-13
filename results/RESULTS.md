@@ -6,6 +6,8 @@ process IDs, or private paths.
 
 ## Files
 
+- `b200_ads_blackwell_snapshot.csv`: ten B200 shapes comparing an ADS
+  Blackwell source snapshot, improved Triton, and separate vendor controls.
 - `h100_attention_refined.csv`: 168 final H100 attention selections and
   fingerprints of the relocated kernel definitions.
 - `h100_pointwise_gemm_refined.csv`: eight H100 SwiGLU/RMSNorm-GEMM comparisons.
@@ -200,3 +202,117 @@ The numerical/performance tables were measured before relocation; focused
 integration checks verify the relocated APIs and existing runner modes.
 Only the three result CSVs are new files; the implementations, verification
 entry points, README and this results document update existing files.
+
+## B200 ADS Blackwell comparison (2026-10-13)
+
+The measured ADS Blackwell source snapshot has SHA-256
+`d23832b4d5b964848da5482079f03a3102b84a31175bde4f8eab9654b6af7f79`.
+It differs from the pinned public source cited in the SM90 port's `NOTICE`.
+These measurements establish results for this snapshot, not for that public
+revision. The CSV explicitly records `ads_matches_pinned_public=False`.
+No ADS source is added to this repository. Its JIT bodies are unchanged;
+the runner selects explicit schedules and preallocates the descriptors and
+output, then checks agreement with the original ADS wrapper.
+
+Measured on NVIDIA B200, 148 SMs, with PyTorch 2.15 development build,
+Triton 3.9 development build and CUDA 12.8. The selected GPU used an 850 W
+power cap and requested 1965 MHz graphics clock. Clock limits were released
+after the run. Compare ratios within this run; the H100 compiler version
+differs. Inputs are synthetic unscaled Gaussian BF16 matrices, with zero,
+small-constant and unit-constant rows added to correctness checks.
+
+### Independent retest results
+
+| M | K | N | ADS TLX (us) | Improved Triton (us) | Fastest vendor control (us) | ADS/vendor |
+|---:|---:|---:|---:|---:|---:|---:|
+| 128 | 1024 | 3072 | 7.894 | 7.200 | 7.309 | 0.926x |
+| 512 | 1024 | 3072 | 9.222 | 9.472 | 9.867 | 1.070x |
+| 512 | 1024 | 4096 | 9.490 | 9.678 | 10.878 | 1.146x |
+| 2048 | 1024 | 4096 | 16.613 | 23.606 | 25.163 | 1.515x |
+| 8192 | 1024 | 4096 | 61.098 | 87.706 | 96.685 | 1.582x |
+| 16384 | 1024 | 4096 | 116.286 | 163.939 | 190.470 | 1.638x |
+| 65536 | 512 | 512 | 39.952 | 67.350 | 112.029 | 2.804x |
+| 131072 | 512 | 512 | 74.875 | 140.870 | 218.826 | 2.923x |
+| 524288 | 512 | 512 | 309.518 | 531.584 | 838.754 | 2.710x |
+| 262144 | 512 | 2048 | 563.843 | 1107.363 | 1252.854 | 2.222x |
+
+ADS has gains over 1% in both independent phases for 9/10 shapes, and is
+also faster than improved Triton for those same nine shapes. Improved
+Triton has 9/10 confirmed gains over the fastest vendor control. Its M128
+gain is 0.77% initially and 1.51% in retest, so it is not confirmed.
+
+The fastest vendor control for every row is separate inverse RMS, BF16
+cuBLAS with FP32 output, then FP32 row scaling and a BF16 cast: three GPU
+kernels. The explicit norm-before-cuBLAS control also uses three kernels:
+FP32 RMSNorm, FP32 cuBLAS and BF16 output conversion. Its preconverted FP32
+weight copy is outside timing. That control ranges from 33.131 to
+11779.289 us; its per-row timings and speedups are included in the CSV.
+Headline ratios use the faster vendor control.
+
+### Explicit unfused norm-before-GEMM comparison
+
+This baseline materializes FP32 RMSNorm output, runs FP32 cuBLAS, then
+converts the GEMM output to BF16. The timings include all three kernels.
+
+| M / K / N | Unfused RMSNorm + cuBLAS (us) | ADS/unfused | Triton/unfused |
+|---|---:|---:|---:|
+| 128 / 1024 / 3072 | 33.131 | 4.197x | 4.602x |
+| 512 / 1024 / 3072 | 79.192 | 8.587x | 8.361x |
+| 512 / 1024 / 4096 | 90.949 | 9.584x | 9.397x |
+| 2048 / 1024 / 4096 | 349.534 | 21.040x | 14.807x |
+| 8192 / 1024 / 4096 | 1301.157 | 21.296x | 14.836x |
+| 16384 / 1024 / 4096 | 2529.078 | 21.749x | 15.427x |
+| 65536 / 512 / 512 | 734.944 | 18.396x | 10.912x |
+| 131072 / 512 / 512 | 1489.472 | 19.893x | 10.573x |
+| 524288 / 512 / 512 | 6432.751 | 20.783x | 12.101x |
+| 262144 / 512 / 2048 | 11779.289 | 20.891x | 10.637x |
+
+Both candidates exceed 1% in both independent phases for all ten shapes
+against this explicit unfused baseline. These larger ratios also include
+the difference between FP32 cuBLAS arithmetic and BF16 Tensor Core GEMM.
+They do not isolate fusion alone. The faster, accuracy-compatible unfused
+row-scale/cuBLAS baseline remains the basis of the headline 9/10 counts.
+Both baseline timings and candidate ratios are in
+`b200_ads_blackwell_snapshot.csv`.
+
+### Correctness and measurement protocol
+
+All 144 selected-arm numerical checks pass: three seeds, four arms, ten
+timed shapes and two tail shapes (M129/K1024/N3072 and M513/K1032/N3080).
+The FP32 norm-before-GEMM oracle is rounded to the BF16 output contract.
+Existing atol=.15, rtol=.02 and relative-L2<=.025 gates are retained; maximum
+observed relative-L2 is 0.0000825. The conventional BF16-normalized-activation
+control fails the FP32 allclose gate in all 36 additional checks. Those
+failed checks remain diagnostic and are not timed or counted as comparable
+implementations. Intermediate rounding cannot silently change the contract.
+
+Schedules are selected from six ADS configurations, twelve Triton choices
+and three separate-normalization configurations. This is a bounded search,
+not an exhaustive optimum. Every timed arm uses fixed inputs and
+preallocated output/scratch. Each phase uses five fresh CUDA-graph rounds,
+seven randomized block samples per round, twenty launches per sample and
+independent ordering seeds. All forty GPU traces contain kernel events.
+ADS uses one kernel per call; selected Triton uses one or two. The selected
+GPU remains exclusive throughout. Raw receipts, IR and traces remain local;
+only the sanitized twenty-row CSV is exported.
+
+### What the comparison shows
+
+Plain Triton already emits Blackwell `tcgen05.mma` instructions in this
+compiler. ADS additionally uses TMA and TMEM, a persistent schedule and
+separate producer/MMA/epilogue tasks. Its normalization reduction shares
+loaded A tiles with GEMM and runs in the epilogue task. The larger selected
+ADS tile is BM256/BN256/BK64 with two MMA groups; these pipeline and tile
+differences accompany the larger-shape gains.
+
+At M128/K1024/N3072, both selected kernels use BM64/BN64/BK64. ADS has 256
+threads and 65924 bytes of shared memory, versus 128 threads and 49168
+bytes for Triton; its static PTX has 52 barrier lines versus 27. The extra
+pipeline machinery is a plausible source of overhead on this small shape.
+These are compiler resource observations, not measured occupancy or a
+causal ablation. At larger shapes, ADS wins despite using more shared memory.
+
+The ratios include scheduling, tile and implementation differences; they
+do not isolate the contribution of normalization fusion alone. This is a
+gamma-free forward operator study, with no full-model or training claim.
+The exact pinned public-source comparison remains outstanding.
