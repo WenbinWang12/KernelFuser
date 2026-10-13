@@ -33,3 +33,4 @@ model-level prefill results are not included here.
 The residual epilogue is faster than its Triton anchor in 30/32 H100 and
 32/32 H200 rows, but it beats explicit cuBLAS `addmm` in only 0/32 and 2/32;
 it remains an Appendix C diagnostic.
+

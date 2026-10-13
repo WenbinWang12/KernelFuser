@@ -61,3 +61,4 @@ Qwen3-8B short-sequence prefill described in `RUN_REQUESTS.md`.
 First-party code is MIT unless a directory states otherwise. The ADS-derived
 SM90 fallback carries its Apache-2.0 attribution notice. PyTorch, Triton,
 `fbtriton`, CUDA, and NVIDIA tooling remain separate dependencies.
+
