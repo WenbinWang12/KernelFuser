@@ -29,10 +29,7 @@ session transcripts, and private paths.
 The runners require Linux, CUDA, PyTorch, Triton, and a supported NVIDIA GPU.
 The legacy E1 H100/H200 receipts use different toolchains (H100 PyTorch
 2.11.0+cu128/Triton 3.6.0; H200 PyTorch 2.5.1/CUDA 12.4/Triton 3.1.0), so
-ratios are interpreted within each device. The strict Qwen3-8B RoPE receipt
-contains 24 passing rows per device at B=1/8/32 and S=128/256/384/512 for both
-mask modes. E4 is an Appendix-only diagnostic because its explicit cuBLAS
-`addmm` comparison wins in only 0/32 H100 and 2/32 H200 rows.
+ratios are interpreted within each device. The Qwen3-8B RoPE runner has a passing semantic smoke, while its first full sweep is diagnostic until the candidate-paired timing audit is complete.
 
 ```bash
 mkdir -p outputs
@@ -61,4 +58,5 @@ Qwen3-8B short-sequence prefill described in `RUN_REQUESTS.md`.
 First-party code is MIT unless a directory states otherwise. The ADS-derived
 SM90 fallback carries its Apache-2.0 attribution notice. PyTorch, Triton,
 `fbtriton`, CUDA, and NVIDIA tooling remain separate dependencies.
+
 
