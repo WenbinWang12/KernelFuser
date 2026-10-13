@@ -1,147 +1,63 @@
-# KernelFuser
+﻿# KernelFuser
 
-First-party benchmark code, reusable TLX/Triton kernel implementations, and
-sanitized per-configuration results for the paper's kernel-fusion experiments.
-
-This repository is a scoped research artifact, not a dump of the working
-directory. It contains no manuscript draft, model weights, private datasets,
-raw execution receipts, profiler traces, credentials, session transcripts, or
-third-party source trees. The manuscript fragment in the working directory
-contains internal production results and is intentionally not included. The
-CSV files in `results/` retain only the fields needed to reproduce the
-reported ratios and figures. The one ADS-derived SM90 fallback is separately
-identified and licensed under Apache-2.0; its attribution and upstream
-snapshot are documented beside the source.
+Scoped benchmark code, reusable Triton/TLX kernels, and sanitized result data
+for the kernel-fusion study. The repository intentionally excludes manuscript
+working files, model weights, raw receipts, profiler traces, credentials,
+session transcripts, and private paths.
 
 ## Contents
 
-- `src/e1_qk_publication.py` and `src/e1_qk_publication_v3.py`: Q/K
-  RMSNorm-to-attention forward census; v3 is the current strict OSU receipt
-  runner used by the A/A script.
-- `src/e3a_moe_publication.py`: expert-local MoE RMSNorm/GEMM forward and
-  backward census.
-- `src/moe_staged_strict.py` and `src/norm_into_gemm_kernel.py`: E3a reference,
-  staged-statistics, and fused-kernel implementations.
-- `src/e4_epilogue_publication.py`, `src/epilogue_sites.py`, and
-  `src/fusion_harness.py`: residual-add GEMM epilogue benchmark.
-- `src/e4_model_shapes_publication_v2.py`: corrected model-shaped E4 runner
-  used for the OSU publication receipts.
-- `src/e7_aa_noise_floor_osu_v3.py`: paired A/A noise-floor receipt runner.
-- `src/e2_gemma_forward_v5_replay.py` and `src/e2_gemma_forward.py`:
-  replay-first Gemma prefill candidate and implementation for the pending
-  model-level correctness run.
-- `src/swiglu/`: native Hopper TLX SwiGLU forward/backward implementation,
-  its matching Triton implementation, and correctness tests.
-- `src/tlx_pilot/`: standalone forward/backward TLX-versus-Triton Hopper
-  pointwise SwiGLU experiment.
-- `src/tlx_ads_sm90_port/`: ADS-attributed Hopper RMSNorm+GEMM fallback and
-  ordinary Triton comparison; this is not the upstream Blackwell kernel.
-- `results/`: sanitized, row-level E1, E3a, E4, E7, and H200 E8 data.
-
-The OSU-only experiments that still need a separate GPU run are listed in
-[`experiments/RUN_REQUESTS.md`](experiments/RUN_REQUESTS.md). That file gives
-the command, target hardware, output receipt, and fail-closed acceptance gate
-for each request. It also records experiments that are deliberately out of
-scope or blocked by Hopper/TLX incompatibility.
-
-The publication E4 runner evaluates four named model families (Llama-3.1-8B,
-Llama-3.1-70B, Qwen3-8B and Qwen3-32B), both `o_proj` and `down_proj`, and
-`M={128,512,2048,8192}`. The corrected runner records the model-shaped K/N
-dimensions and includes an explicit `torch.addmm` vendor comparator.
+- `src/e1_rope_publication_v1.py`: RoPE-aware Q/K RMSNorm+RoPE isolated runner
+  with FP32 oracle checks, paired compiled/vendor arms, fresh retests, GPU
+  snapshots, and compressed Chrome traces.
+- `src/e1_qk_publication_v3.py`: legacy B=1, no-RoPE Q/K RMSNorm census.
+- `src/e3a_moe_publication.py`, `src/moe_staged_strict.py`, and
+  `src/norm_into_gemm_kernel.py`: expert-local MoE studies.
+- `src/e4_model_shapes_publication_v2.py`: model-shaped residual epilogue
+  runner with explicit `torch.addmm` comparator.
+- `src/e7_aa_noise_floor_osu_v3.py`: paired A/A noise-floor runner.
+- `src/e2_gemma_forward_v5_replay.py`: replay-first Gemma candidate retained
+  for audit; its withdrawn v2 receipts are not results.
+- `src/swiglu/`, `src/tlx_pilot/`, and `src/tlx_ads_sm90_port/`: reusable
+  pointwise/TLX experiments with their own scope notes.
+- `results/`: sanitized CSV summaries only.
+- `experiments/RUN_REQUESTS.md`: current OSU P0/P1 handoff and fail-closed
+  acceptance gates.
 
 ## Reproduction
 
-The benchmark runners require Linux, a supported NVIDIA GPU, CUDA, PyTorch,
-and Triton. The current publication-eligible E1 receipts are OSU H100 and
-H200, each with 144 audited configurations. H100 uses PyTorch 2.11.0+cu128 /
-Triton 3.6.0; H200 uses PyTorch 2.5.1 / CUDA 12.4 / Triton 3.1.0. E4 has
-completed corrected OSU H100 and H200 receipts with named Llama-3.1 and Qwen3
-projection shapes and an explicit `torch.addmm` comparator. Earlier
-H100/BABEL measurements are provenance only and are not publication claims.
-E3a's publication-eligible receipt is H200; its H100 run remains pending audit
-and is intentionally not included in `results/`.
-
-Install a PyTorch build compatible with the installed NVIDIA driver/CUDA stack,
-then install a compatible Triton release. From the repository root:
+The runners require Linux, CUDA, PyTorch, Triton, and a supported NVIDIA GPU.
+The legacy E1 H100/H200 receipts use different toolchains (H100 PyTorch
+2.11.0+cu128/Triton 3.6.0; H200 PyTorch 2.5.1/CUDA 12.4/Triton 3.1.0), so
+ratios are interpreted within each device. The strict Qwen3-8B RoPE receipt
+contains 24 passing rows per device at B=1/8/32 and S=128/256/384/512 for both
+mask modes. E4 is an Appendix-only diagnostic because its explicit cuBLAS
+`addmm` comparison wins in only 0/32 H100 and 2/32 H200 rows.
 
 ```bash
 mkdir -p outputs
-python src/e1_qk_publication_v3.py --output outputs/e1.json
-python src/e3a_moe_publication.py \
-  --out outputs/e3a.json --trace-dir outputs/e3a-traces
-python src/e4_model_shapes_publication_v2.py \
-  --out outputs/e4.json --trace-dir outputs/e4-traces \
-  --M 128,512,2048,8192
+python src/e1_rope_publication_v1.py \
+  --output outputs/e1-rope.json --trace-dir outputs/e1-rope-traces
+python src/e1_qk_publication_v3.py --output outputs/e1-legacy.json
 python src/e7_aa_noise_floor_osu_v3.py \
   --out outputs/e7-aa.json --trace-dir outputs/e7-aa-traces
 ```
 
-`src/e4_epilogue_publication.py` is retained as an archival synthetic harness;
-use the model-shaped v2 runner above for the current E4 protocol. These
-commands perform long-running GPU benchmarks and write full receipts and
-Chrome traces under `outputs/`. Those generated files can contain machine
-identifiers and local paths; they are ignored by Git and should not be
-published without a separate review. Do not commit raw receipts or traces.
+Generated receipts and traces can contain host identifiers and local paths;
+they are ignored by the public artifact policy and should be sanitized before
+sharing. A passing correctness check alone is not a speedup claim; the timing,
+retest, trace, and exclusivity gates must also pass.
 
-The scripts preserve correctness gates and record negative results; a run is
-not evidence of a speedup unless its correctness and timing checks pass. GPU
-architecture, compiler versions, power state, and contention affect timing.
-Use the source receipt protocol and rerun on the intended hardware before
-making new claims.
+## Claim boundaries
 
-## TLX and SwiGLU kernels
-
-The reusable `src/swiglu/` backend replaces only the pointwise SwiGLU
-activation in a model: projections, routing, and other operators remain the
-caller's implementation. Its native TLX backend is Hopper/SM90-only and uses
-`triton.language.extra.tlx` from a compatible `fbtriton` build; the paired
-Triton backend provides the same BF16 forward/backward contract. See
-[`src/swiglu/README.md`](src/swiglu/README.md) for setup and correctness tests.
-
-The `src/tlx_pilot/` runner measures isolated pointwise forward/backward
-SwiGLU kernels, not full models or GEMM/routing fusion. The
-`src/tlx_ads_sm90_port/` runner measures an ADS-derived RMSNorm+GEMM Hopper
-fallback against ordinary Triton. It records a source receipt and profiler
-traces under its requested output directory; review and sanitize generated
-artifacts before sharing them. Do not infer Blackwell performance or
-model-level results from either runner.
-
-On Linux with the compatible TLX-enabled GPU environment described in
-[`src/swiglu/README.md`](src/swiglu/README.md), run either pilot from the
-repository root with:
-
-```bash
-python src/tlx_pilot/tlx_swiglu_hopper.py --out outputs/tlx-swiglu-pilot
-python src/tlx_ads_sm90_port/ads_sm90_rmsnorm_matmul.py \
-  --out outputs/tlx-ads-sm90
-```
-
-The paper's 13-model TLX SwiGLU backend is represented by the reusable
-module in `src/swiglu/`; model runners and checkpoint-loading paths are
-intentionally omitted. Third-party model kernels and vendor tutorials are
-also not copied into this repository.
-
-## Results and claim boundaries
-
-All ratios use `baseline / fused`; values above 1 indicate a faster fused arm.
-See [`results/RESULTS.md`](results/RESULTS.md) for aggregation rules and
-coverage caveats.
-
-- E1 is an isolated, forward-only operator census; it is not an end-to-end
-  model result.
-- E3a is an expert-local forward/backward kernel study without routing or a
-  parameter update.
-- E4 is an isolated forward-only residual epilogue study.
-
-E1, E4, and E7 are operator-level measurements. They do not imply model-level
-or end-to-end acceleration. The current Gemma end-to-end prefill candidate is
-withheld because it fails the model-level correctness gate; see the run plan
-for the exact rerun protocol.
+The legacy E1 and new E1-RoPE runners are isolated forward-only operator
+studies. The Qwen3-8B E1-RoPE receipt is not an end-to-end model result. E3a
+is expert-local and has no routing or parameter update. E4 remains an appendix
+diagnostic against the vendor gate. The active model-level request is the
+Qwen3-8B short-sequence prefill described in `RUN_REQUESTS.md`.
 
 ## License
 
-Except for `src/tlx_ads_sm90_port/ads_sm90_rmsnorm_matmul.py` and its
-accompanying attribution/license notice, first-party code in this repository
-is released under the MIT License. The ADS-derived file is licensed under
-Apache-2.0 as documented in that directory. PyTorch, Triton, `fbtriton`, CUDA,
-and NVIDIA tooling are separate dependencies and are not relicensed here.
+First-party code is MIT unless a directory states otherwise. The ADS-derived
+SM90 fallback carries its Apache-2.0 attribution notice. PyTorch, Triton,
+`fbtriton`, CUDA, and NVIDIA tooling remain separate dependencies.

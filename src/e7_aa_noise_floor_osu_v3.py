@@ -6,7 +6,13 @@ from pathlib import Path
 import torch
 import e1_qk_publication_v3 as e1
 
-ROWS=[("Qwen3-8B",512,False),("Gemma-3-12B",1024,True),("Qwen3-30B-A3B",2048,False)]
+# Keep the original long-sequence controls and add the short-sequence region
+# used by the RoPE isolation and Qwen3 prefill follow-up.  This is intentionally
+# an A/A test: two independently captured copies of the same baseline graph.
+ROWS=[("Qwen3-8B",128,False),("Qwen3-8B",256,False),
+      ("Qwen3-32B",128,False),("Qwen3-32B",256,False),
+      ("Qwen3-8B",512,False),("Gemma-3-12B",1024,True),
+      ("Qwen3-30B-A3B",2048,False)]
 WARM,SAMPLES,ROUNDS=20,100,5
 def stat(xs):
     if not xs or not all(torch.isfinite(torch.tensor(xs)).tolist()): raise RuntimeError("non-finite timing")

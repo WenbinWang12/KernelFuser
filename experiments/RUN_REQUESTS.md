@@ -1,118 +1,67 @@
-# OSU GPU run requests
+﻿# OSU GPU handoff: revised P0/P1 runs
 
-This file is the handoff list for experiments that cannot be completed in the
-current Windows workspace. Run only on the requested OSU GPU, with no foreign
-compute process on the selected physical GPU. Do not use the old BABEL H100
-receipts as a substitute.
+Run these on the OSU H100 and H200 systems only. Do not use withdrawn or
+non-canonical receipts as substitutes. A promoted row must record source hash,
+host/GPU/software versions, fixed seeds, correctness before timing, randomized
+paired timing, fresh retest, GPU-exclusivity snapshots, and non-empty Chrome
+traces. Any failed gate is `tested_invalid` and carries no speedup claim.
 
-Every returned receipt must include the source hash, host/GPU/software
-environment, fixed seeds, correctness results before timing, randomized paired
-timing, independent retest when the ratio exceeds 1.01, GPU-exclusivity
-snapshots, and non-empty Chrome traces. A row that fails correctness or
-exclusivity is `tested_invalid` and must not have a speedup claim.
+## P0-1: RoPE-aware isolated attention replacement for E1
 
-## 1. E2 Gemma prefill: H100 rerun
+Use `src/e1_rope_publication_v1.py`. The candidate fuses Q/K RMSNorm and
+split-half RoPE into the fixed attention anchor. Sweep all nine geometries,
+`S=128,256,384,512`, causal and non-causal, and `B=1,8,32` on both GPUs.
+Compare (a) the same anchor with separate norm and RoPE, (b) `torch.compile`,
+and (c) vendor SDPA. Compiled and vendor arms must be paired and alternated
+against the candidate; retest rows whose initial ratio exceeds 1.01. The
+runner's `--trace-dir` must be supplied.
 
-**Target:** OSU H100, one GPU at a time. Use Gemma-3 4B, 12B, and 27B local
-text-decoder checkpoints at `S=512,1024,2048,4096`.
-
-The candidate is the replay-first source in `src/e2_gemma_forward_v5_replay.py`
-and `src/e2_gemma_forward.py`. The runner takes a local checkpoint path and
-does not download weights:
+Example (adjust Python and output paths for each host):
 
 ```bash
-python src/e2_gemma_forward_v5_replay.py \
-  --model /path/to/Gemma-3-4B \
-  --model-name Gemma-3-4B \
-  --out outputs/e2_gemma4_h100.json \
-  --seqlens 512 1024 2048 4096
+python src/e1_rope_publication_v1.py \
+  --output outputs/e1_rope_h100.json \
+  --trace-dir outputs/e1-rope-h100-traces
 ```
 
-Repeat for 12B and 27B. Promote only if every row passes finite logits,
-full-logit agreement, top-1 agreement, NLL agreement, compiled-arm timing,
-retest, trace, and GPU-exclusivity gates. If the model-level gate fails, keep
-the receipt and stop timing that row.
+The initial implementation has passed a H100 B=1, S=128 split-half RoPE
+correctness smoke. Full receipts remain unpromoted until all rows pass.
 
-**Expected output:** one JSON receipt per model plus its generated trace
-directory. The paper's E2E table must remain blank if any model-level gate
-fails.
+## P0-2: Qwen3-8B prefill with the same RoPE kernel
 
-## 2. E3a MoE expert-local H100 audit
+Run the model-level prefill using the same candidate and shape dispatch for
+Qwen3-8B at `S=128,256` and `B=1,8,32`. Use compiled unfused and compiled fused
+models, and validate full logits, top-1 predictions, NLL, and parameter/state
+agreement before timing. Gemma sliding-window prefill is out of this scope;
+do not reuse the withdrawn Gemma v2 receipts.
 
-**Target:** OSU H100. Run the nine public geometries and all four token counts
-unless a resource limit is documented:
+## P0-3: A/A noise floor extension
 
-```bash
-python src/e3a_moe_publication.py \
-  --out outputs/e3a_h100.json \
-  --trace-dir outputs/e3a-h100-traces \
-  --tokens 2048,8192,32768,131072
-```
+Use `src/e7_aa_noise_floor_osu_v3.py` after the source update. Collect at least
+5--6 rows per GPU including S=128 and S=256 and the Qwen3-8B prefill shapes.
+The current source has seven rows (Qwen3-8B/32B short sequences plus the prior
+long-sequence controls). Keep the independent retest and trace archive.
 
-This is an expert-local forward/backward study. It does not establish routing,
-full-model, or parameter-update performance. The existing H200 receipt is
-already the promoted architecture comparison; H100 must pass the same audit.
+## P1: offline and audit follow-ups
 
-## 3. E8 H100 failure-case census
+* Recompute E5 from canonical E1 receipts with `f > c/(1+c)`; the existing
+  E5 JSON is diagnostic-only and must not enter the paper.
+* E10 is not an optimization ablation. Either instrument one on the new RoPE
+  kernel with one receipt per optimization step, or remove step-level claims.
+* Correctness study: use the H200 13-checkpoint receipt in the main text; add
+  H100 only after its audit passes.
+* E8 Appendix C uses only the six H200 model-shaped rows for Llama3-8B and
+  Qwen2.5-3B. The four Wukong rows are development provenance and must not be
+  used in the paper claim.
 
-**Target:** OSU H100. Run the forward-only dense RMSNorm and SwiGLU failure
-cases with the public runner:
+## No run requested
 
-```bash
-python src/e8_forward_publication.py \
-  --out outputs/e8_h100.json \
-  --trace-dir outputs/e8-h100-traces \
-  --only dense_rmsnorm,swiglu
-```
+Do not spend GPU time on residual E4 (move to Appendix C), E3c, E6, E9,
+Qwen3-30B-A3B E3b, LM-head supplement, or SwiGLU-vs-cuBLAS: the existing
+receipts are sufficient for their current appendix/status decisions.
 
-The runner checks an independent FP32 oracle before timing, uses randomized
-20/100/5 CUDA-graph pairs, conditionally retests, and records plain/fused/
-vendor arms. This result is isolated forward-only evidence. It does not fill
-the LM-head rows.
+## Return bundle
 
-## 4. E8 LM-head and cuBLAS supplement
-
-Run the final normalization-to-LM-head rows on OSU H100 with the same strict
-gate and an explicit `torch.addmm` vendor arm. Also report SwiGLU against the
-vendor arm, rather than only against a slower hand-written anchor. The model
-checkpoint loader is intentionally not included in this public repository;
-the returned receipt must be sanitized before adding a public CSV.
-
-## 5. E10 independent optimization ablation
-
-The current `e10_h100.json` and `e10_h200.json` are exact forward-only rows
-from the E1 runner and are **not** an independent optimization ablation. Do
-not use them to claim separate effects for hoisting, fold gamma, key scaling,
-or reduction changes. A valid replacement must time the same fixed shape and
-inputs after each optimization step, retain correctness and traces for every
-step, and include a baseline plus one row per step.
-
-## 6. Offline E5 rescore after receipt return
-
-This step needs no GPU. Recompute the cost-aware decision from the canonical
-`e1_h100_osu_v3.json` and `e1_h200_v3.json` receipts using
-
-```text
-f = (t_F_unfused - t_G) / t_F_unfused
-c = (t_F_fused - t_G) / t_G
-fuse iff f > c / (1 + c)
-```
-
-The existing `e5_break_even_rescore_v2.json` is diagnostic-only because it
-uses an old merged H100 input and reconstructs `f` and `c` from the same timing
-triplet as the observed ratio. It must not be used for a paper claim.
-
-## Deliberately out of scope for this handoff
-
-Do not spend GPU time on E3c full-model MoE training, E6 TLX selection, or E9
-TLX end-to-end. E3c's previous attempts failed with OOM/logit mismatch, and
-E6/E9 depend on Blackwell-only `tmem` instructions that do not compile on
-Hopper SM90. The current project scope also does not request another
-E3b/Qwen3-30B-A3B run.
-
-## Return checklist
-
-Return the JSON receipt, source/implementation hashes, software versions,
-selected physical GPU and exclusivity snapshots, trace archive or trace
-manifest, and a short sanitized CSV. Do not return model weights, credentials,
-private local paths, or raw host identifiers in the public repository.
+Return JSON receipts, source hashes, software versions, physical GPU and
+exclusivity evidence, trace archive/manifest, and sanitized CSV. Do not return
+weights, credentials, private host paths, or stale withdrawn E2 receipts.
