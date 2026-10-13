@@ -15,48 +15,70 @@ snapshot are documented beside the source.
 
 ## Contents
 
-- `src/e1_qk_publication.py`: Q/K RMSNorm-to-attention forward census.
+- `src/e1_qk_publication.py` and `src/e1_qk_publication_v3.py`: Q/K
+  RMSNorm-to-attention forward census; v3 is the current strict OSU receipt
+  runner used by the A/A script.
 - `src/e3a_moe_publication.py`: expert-local MoE RMSNorm/GEMM forward and
   backward census.
 - `src/moe_staged_strict.py` and `src/norm_into_gemm_kernel.py`: E3a reference,
   staged-statistics, and fused-kernel implementations.
 - `src/e4_epilogue_publication.py`, `src/epilogue_sites.py`, and
   `src/fusion_harness.py`: residual-add GEMM epilogue benchmark.
+- `src/e4_model_shapes_publication_v2.py`: corrected model-shaped E4 runner
+  used for the OSU publication receipts.
+- `src/e7_aa_noise_floor_osu_v3.py`: paired A/A noise-floor receipt runner.
+- `src/e2_gemma_forward_v5_replay.py` and `src/e2_gemma_forward.py`:
+  replay-first Gemma prefill candidate and implementation for the pending
+  model-level correctness run.
 - `src/swiglu/`: native Hopper TLX SwiGLU forward/backward implementation,
   its matching Triton implementation, and correctness tests.
 - `src/tlx_pilot/`: standalone forward/backward TLX-versus-Triton Hopper
   pointwise SwiGLU experiment.
 - `src/tlx_ads_sm90_port/`: ADS-attributed Hopper RMSNorm+GEMM fallback and
   ordinary Triton comparison; this is not the upstream Blackwell kernel.
-- `results/`: sanitized, row-level E1, E3a, and E4 speedup data.
+- `results/`: sanitized, row-level E1, E3a, E4, E7, and H200 E8 data.
 
-E4 evaluates four projection geometries, not four named models:
-two `down_proj` geometries and two `o_proj` geometries. Model-level claims
-should not be inferred from these synthetic geometry tests.
+The OSU-only experiments that still need a separate GPU run are listed in
+[`experiments/RUN_REQUESTS.md`](experiments/RUN_REQUESTS.md). That file gives
+the command, target hardware, output receipt, and fail-closed acceptance gate
+for each request. It also records experiments that are deliberately out of
+scope or blocked by Hopper/TLX incompatibility.
+
+The publication E4 runner evaluates four named model families (Llama-3.1-8B,
+Llama-3.1-70B, Qwen3-8B and Qwen3-32B), both `o_proj` and `down_proj`, and
+`M={128,512,2048,8192}`. The corrected runner records the model-shaped K/N
+dimensions and includes an explicit `torch.addmm` vendor comparator.
 
 ## Reproduction
 
 The benchmark runners require Linux, a supported NVIDIA GPU, CUDA, PyTorch,
-and Triton. E1's recorded environment is PyTorch 2.6.0+cu126 and Triton 3.2.0;
-reproduce the matching CUDA-enabled environment for comparable measurements.
-The E1/E4 timing receipts were collected on H100 and H200 GPUs. E3a's
-publication-eligible receipt is H200; the H100 run remains pending audit and
-is intentionally not included in `results/`.
+and Triton. The current publication-eligible E1 receipts are OSU H100 and
+H200, each with 144 audited configurations. H100 uses PyTorch 2.11.0+cu128 /
+Triton 3.6.0; H200 uses PyTorch 2.5.1 / CUDA 12.4 / Triton 3.1.0. E4 has
+completed corrected OSU H100 and H200 receipts with named Llama-3.1 and Qwen3
+projection shapes and an explicit `torch.addmm` comparator. Earlier
+H100/BABEL measurements are provenance only and are not publication claims.
+E3a's publication-eligible receipt is H200; its H100 run remains pending audit
+and is intentionally not included in `results/`.
 
 Install a PyTorch build compatible with the installed NVIDIA driver/CUDA stack,
 then install a compatible Triton release. From the repository root:
 
 ```bash
 mkdir -p outputs
-python src/e1_qk_publication.py --output outputs/e1.json
+python src/e1_qk_publication_v3.py --output outputs/e1.json
 python src/e3a_moe_publication.py \
   --out outputs/e3a.json --trace-dir outputs/e3a-traces
-python src/e4_epilogue_publication.py \
+python src/e4_model_shapes_publication_v2.py \
   --out outputs/e4.json --trace-dir outputs/e4-traces \
-  --sites gemm_residual --M 128,512,2048,8192
+  --M 128,512,2048,8192
+python src/e7_aa_noise_floor_osu_v3.py \
+  --out outputs/e7-aa.json --trace-dir outputs/e7-aa-traces
 ```
 
-These commands perform long-running GPU benchmarks and write full receipts and
+`src/e4_epilogue_publication.py` is retained as an archival synthetic harness;
+use the model-shaped v2 runner above for the current E4 protocol. These
+commands perform long-running GPU benchmarks and write full receipts and
 Chrome traces under `outputs/`. Those generated files can contain machine
 identifiers and local paths; they are ignored by Git and should not be
 published without a separate review. Do not commit raw receipts or traces.
@@ -110,6 +132,11 @@ coverage caveats.
 - E3a is an expert-local forward/backward kernel study without routing or a
   parameter update.
 - E4 is an isolated forward-only residual epilogue study.
+
+E1, E4, and E7 are operator-level measurements. They do not imply model-level
+or end-to-end acceleration. The current Gemma end-to-end prefill candidate is
+withheld because it fails the model-level correctness gate; see the run plan
+for the exact rerun protocol.
 
 ## License
 
