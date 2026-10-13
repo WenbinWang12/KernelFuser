@@ -15,7 +15,10 @@ session transcripts, and private paths.
   `src/norm_into_gemm_kernel.py`: expert-local MoE studies.
 - `src/e4_model_shapes_publication_v2.py`: model-shaped residual epilogue
   runner with explicit `torch.addmm` comparator.
-- `src/e7_aa_noise_floor_osu_v3.py`: paired A/A noise-floor runner.
+- `src/e7_rope_aa.py`: six-shape Qwen3-8B RoPE A/A noise-floor runner.
+- `src/e7_aa_noise_floor_osu_v3.py`: supplementary seven-row A/A controls.
+- `src/e2_qwen3_rope_prefill.py`: Qwen3-8B model-prefill correctness/timing
+  runner; no timing row is emitted when the baseline agreement gate fails.
 - `src/e2_gemma_forward_v5_replay.py`: replay-first Gemma candidate retained
   for audit; its withdrawn v2 receipts are not results.
 - `src/swiglu/`, `src/tlx_pilot/`, and `src/tlx_ads_sm90_port/`: reusable
@@ -29,7 +32,11 @@ session transcripts, and private paths.
 The runners require Linux, CUDA, PyTorch, Triton, and a supported NVIDIA GPU.
 The legacy E1 H100/H200 receipts use different toolchains (H100 PyTorch
 2.11.0+cu128/Triton 3.6.0; H200 PyTorch 2.5.1/CUDA 12.4/Triton 3.1.0), so
-ratios are interpreted within each device. The Qwen3-8B RoPE runner has a passing semantic smoke, while its first full sweep is diagnostic until the candidate-paired timing audit is complete.
+ratios are interpreted within each device. The updated Qwen3-8B RoPE runner
+passes the strict semantic smoke on both devices and the full 24-row isolation
+receipt on both devices. The Qwen3-8B model
+prefill smoke currently stops at the compiled-versus-eager agreement gate and
+has no timing claim.
 
 ```bash
 mkdir -p outputs

@@ -1,6 +1,9 @@
 ﻿# OSU GPU handoff: revised P0/P1 runs
 
-Run these on the OSU H100 and H200 systems only. Do not use withdrawn or
+Run these on the OSU H100 and H200 systems only. On H200, the completed
+receipts in this bundle were collected on cards 0/1 and remain valid; do not
+launch any further jobs on H200 cards 0/1/2/3. Any future H200 rerun must use
+an available card in 4--7. Do not use withdrawn or
 non-canonical receipts as substitutes. A promoted row must record source hash,
 host/GPU/software versions, fixed seeds, correctness before timing, randomized
 paired timing, fresh retest, GPU-exclusivity snapshots, and non-empty Chrome
@@ -24,23 +27,26 @@ python src/e1_rope_publication_v1.py \
   --trace-dir outputs/e1-rope-h100-traces
 ```
 
-The initial implementation has passed a H100 B=1, S=128 split-half RoPE
-correctness smoke. Full receipts remain unpromoted until all rows pass.
+The v2 implementation passes the split-half RoPE correctness smoke on both
+devices. The H100 and H200 Qwen3-8B 24-row receipts are complete. The earlier
+non-paired full sweep remains diagnostic.
 
 ## P0-2: Qwen3-8B prefill with the same RoPE kernel
 
 Run the model-level prefill using the same candidate and shape dispatch for
 Qwen3-8B at `S=128,256` and `B=1,8,32`. Use compiled unfused and compiled fused
 models, and validate full logits, top-1 predictions, NLL, and parameter/state
-agreement before timing. Gemma sliding-window prefill is out of this scope;
-do not reuse the withdrawn Gemma v2 receipts.
+agreement before timing. The first smoke on both GPUs stopped at the
+compiled-versus-eager baseline agreement gate and recorded no timing. Gemma
+sliding-window prefill is out of this scope; do not reuse the withdrawn Gemma
+v2 receipts.
 
 ## P0-3: A/A noise floor extension
 
-Use `src/e7_aa_noise_floor_osu_v3.py` after the source update. Collect at least
-5--6 rows per GPU including S=128 and S=256 and the Qwen3-8B prefill shapes.
-The current source has seven rows (Qwen3-8B/32B short sequences plus the prior
-long-sequence controls). Keep the independent retest and trace archive.
+Use `src/e7_rope_aa.py`. The six Qwen3-8B rows (B=1,8,32 and S=128,256,
+causal) have passed on both GPUs with independent retests, exclusivity
+monitoring and four traces per row. The older seven-row controls remain
+supplementary.
 
 ## P1: offline and audit follow-ups
 
