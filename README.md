@@ -101,10 +101,41 @@ remain available. Raw receipts and profiler artifacts stay in ignored
 local output directories. The CSVs contain only sanitized performance
 fields and repository-relative source names.
 
+## B200 ADS Blackwell comparison
+
+The existing E8 runner can compare the original ADS Blackwell JIT with the
+improved plain Triton implementation and separate vendor controls. Supply
+the ADS source separately; the runner verifies the source fingerprint from
+the pinned public revision cited in the ADS port's `NOTICE`.
+
+```bash
+python src/e8_forward_publication.py --b200-ads \
+  --ads-source /path/to/ads_model_kernel_library/multi_cta_norm_fusion/src/tlx_rmsnorm_matmul.py \
+  --out outputs/b200-ads --csv results/b200_ads_rmsnorm_matmul.csv
+```
+
+For another ADS revision, explicitly use `--allow-source-version` and a
+distinct CSV filename. The CSV records the source fingerprint and whether
+it matches the pinned version. No ADS source is copied into this repository.
+
+The bounded schedule search keeps the supplied ADS JIT bodies unchanged.
+It includes an eight-subtile RMSNorm reduction schedule to avoid excessive
+shared loads and reductions on short GEMMs. The M128 diagnosis, controlled
+ablations and follow-up results are in [results/RESULTS.md](results/RESULTS.md).
+All timed arms preallocate outputs and scratch. Each case receives three
+correctness seeds, randomized CUDA-graph timings and an independent retest;
+sequence tails and selected-GPU exclusivity are checked before CSV export.
+
+The strict norm-before-cuBLAS control normalizes in FP32, uses FP32 cuBLAS,
+then casts the output to BF16. Its FP32 weight copy is prepared outside
+timing. A second control uses BF16 cuBLAS with FP32 output and separate row
+scaling/casting. The main speedup columns compare against the faster of
+these two controls. Normalizing to BF16 before cuBLAS introduces a different
+rounding boundary; its FP32 correctness result is retained as a diagnostic.
+
 ## License
 
 First-party code is MIT unless a directory states otherwise. The ADS-derived
 SM90 fallback carries its Apache-2.0 attribution notice. PyTorch, Triton,
 `fbtriton`, CUDA, and NVIDIA tooling remain separate dependencies.
-
 
