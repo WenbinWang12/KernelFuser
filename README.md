@@ -60,6 +60,47 @@ is expert-local and has no routing or parameter update. E4 remains an appendix
 diagnostic against the vendor gate. The active model-level request is the
 Qwen3-8B short-sequence prefill described in `RUN_REQUESTS.md`.
 
+## H100 fusion refinements
+
+The existing implementations now include the H100 refinements. See
+[results and limitations](results/RESULTS.md#h100-fusion-refinement-2026-10-13)
+and the sanitized CSVs in `results/`.
+
+- `src/e1_rope_publication_v1.py`: `optimized_attention` prepares K once
+  and fuses Q normalization/RoPE into attention. Explicit query/unfused
+  modes use BM64 with BN64/BN128; dtype, GQA and sequence tails are checked.
+- `src/e1_qk_publication_v3.py`: `launch_factored_attention` folds Q gamma
+  into K and Q's inverse RMS into scores for the no-RoPE proxy. This reduces
+  Q scratch by 128x for D256, with different intermediate BF16 rounding.
+- `src/tlx_ads_sm90_port/ads_sm90_rmsnorm_matmul.py`: `rmsnorm_gemm`
+  adds row scaling in the GEMM epilogue, with a TLX async-load/async-dot
+  pipeline and a masked Triton fallback for odd strides.
+- `src/tlx_pilot/tlx_swiglu_hopper.py`: `launch_swiglu` adds the measured
+  single-task candidate and explicit arithmetic/rounding controls.
+- `src/epilogue_sites.py`: `gemm_residual` offers measured H100 schedules;
+  vendor `addmm` remains the fastest measured default.
+- `src/fusion_harness.py`: shared randomized device timing and compiler
+  evidence utilities used by the existing runners.
+
+Use the new refinement flags for tuning and independent verification:
+
+```bash
+python src/e1_rope_publication_v1.py --tune --out outputs/attention-tune
+python src/e1_rope_publication_v1.py --refine --out outputs/attention-refine
+python src/e1_qk_publication_v3.py --refine \
+  --census outputs/attention-refine/results.json --out outputs/attention-factored
+python src/e4_model_shapes_publication_v2.py --tune --out outputs/residual-tune
+python src/e4_model_shapes_publication_v2.py --refine --out outputs/residual-refine
+python src/e8_forward_publication.py --h100-unfused --out outputs/pointwise-gemm
+```
+
+The plain attention/residual refinement modes do not require TLX. The
+SwiGLU/GEMM experiments require a TLX-enabled Triton build. These are
+isolated operator tests; original runner modes and their publication gates
+remain available. Raw receipts and profiler artifacts stay in ignored
+local output directories. The CSVs contain only sanitized performance
+fields and repository-relative source names.
+
 ## License
 
 First-party code is MIT unless a directory states otherwise. The ADS-derived
