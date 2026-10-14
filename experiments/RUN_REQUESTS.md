@@ -53,7 +53,7 @@ sliding-window prefill is out of scope.
 ## P1 follow-ups
 
 1. **Optimization ablation.** On one fixed software stack and identical shapes,
-   measure old kernel 鈫?K prepared once 鈫?schedule change 鈫?D=256 inverse-RMS
+   measure old kernel -> K prepared once -> schedule change -> D=256 inverse-RMS
    factor on scores. The last step is a no-RoPE transformation; do not present
    it as a RoPE optimization.
 2. **B200 ADS.** Re-run against the exact public ADS commit, or record a
@@ -86,4 +86,5 @@ For each run, return:
 The public PR should include only items 2--4. A reviewer must be able to
 recompute every reported ratio from the sanitized CSV without receiving a
 private path or a production artifact.
+
 
