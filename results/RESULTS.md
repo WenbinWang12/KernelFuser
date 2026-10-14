@@ -6,12 +6,12 @@ process IDs, or private paths.
 
 ## Files
 
-- `b200_ads_blackwell_snapshot.csv`: ten B200 shapes comparing an ADS
-  Blackwell source snapshot, improved Triton, and separate vendor controls.
-- `b200_ads_blackwell_tuned.csv`: a fresh ten-shape comparison after adding
-  the eight-subtile reduction candidate to the schedule search.
-- `b200_ads_m128_ablation.csv`: sixteen controlled M128 variants, paired
-  timings, numerical gates and selected sanitized compiler/profile metrics.
+- `b200_ads_blackwell_snapshot.csv`: snapshot diagnostics for ten B200
+  shapes, improved Triton, and separate vendor controls.
+- `b200_ads_blackwell_tuned.csv`: snapshot diagnostics for a fresh ten-shape
+  comparison after adding the eight-subtile reduction candidate.
+- `b200_ads_m128_ablation.csv`: snapshot diagnostics for sixteen controlled
+  M128 variants, paired timings, gates and sanitized compiler/profile metrics.
 - `h100_attention_refined.csv`: 168 final H100 attention selections and
   fingerprints of the relocated kernel definitions.
 - `h100_pointwise_gemm_refined.csv`: eight H100 SwiGLU/RMSNorm-GEMM comparisons.
@@ -207,13 +207,31 @@ integration checks verify the relocated APIs and existing runner modes.
 Only the three result CSVs are new files; the implementations, verification
 entry points, README and this results document update existing files.
 
-## B200 ADS Blackwell comparison (2026-10-13)
+## B200 ADS Blackwell snapshot diagnostics (2026-10-13)
+
+**Evidence status: snapshot diagnostics; public-source validation pending.**
+All three B200 CSVs record `ads_matches_pinned_public=False`,
+`evidence_status=snapshot_diagnostic` and `publication_eligible=False`.
+The repeatability counts and causal ablation below apply to the measured
+snapshot. An exact public-commit rerun or an explicit source-diff audit must
+be attached before using them to support claims about the pinned public
+implementation. Neither artifact is currently attached.
+
+A rerun must record the exact public commit and source hash alongside the
+existing correctness gates and paired timing protocol. A source-diff audit
+must identify both source versions, compare the JIT bodies, numerical
+semantics and launch/configuration changes, and state which performance
+claims the differences support. A fingerprint alone is not a source-diff audit.
 
 The measured ADS Blackwell source snapshot has SHA-256
 `d23832b4d5b964848da5482079f03a3102b84a31175bde4f8eab9654b6af7f79`.
 It differs from the pinned public source cited in the SM90 port's `NOTICE`.
 These measurements establish results for this snapshot, not for that public
 revision. The CSV explicitly records `ads_matches_pinned_public=False`.
+The pinned revision is `2889aefba0d03b3eecf779eed9f4097066ecdc5d`, with
+source SHA-256
+`26f66c287a957fa324eca24473509823b84779111acd05b07d0ea10061de4a29`.
+Hash mismatch alone does not establish which source changes affect timing.
 No ADS source is added to this repository. Its JIT bodies are unchanged;
 the runner selects explicit schedules and preallocates the descriptors and
 output, then checks agreement with the original ADS wrapper.
@@ -240,8 +258,8 @@ small-constant and unit-constant rows added to correctness checks.
 | 524288 | 512 | 512 | 309.518 | 531.584 | 838.754 | 2.710x |
 | 262144 | 512 | 2048 | 563.843 | 1107.363 | 1252.854 | 2.222x |
 
-ADS has gains over 1% in both independent phases for 9/10 shapes, and is
-also faster than improved Triton for those same nine shapes. Improved
+The tested ADS snapshot has gains over 1% in both phases for 9/10 shapes,
+and is faster than improved Triton for those same nine shapes. Improved
 Triton has 9/10 confirmed gains over the fastest vendor control. Its M128
 gain is 0.77% initially and 1.51% in retest, so it is not confirmed.
 
@@ -251,7 +269,8 @@ kernels. The explicit norm-before-cuBLAS control also uses three kernels:
 FP32 RMSNorm, FP32 cuBLAS and BF16 output conversion. Its preconverted FP32
 weight copy is outside timing. That control ranges from 33.131 to
 11779.289 us; its per-row timings and speedups are included in the CSV.
-Headline ratios use the faster vendor control.
+Reported diagnostic ratios use the faster vendor control. `confirmed_1pct`
+denotes repeated timing gains only; it does not confirm public-source identity.
 
 ### Explicit unfused norm-before-GEMM comparison
 
@@ -275,7 +294,7 @@ Both candidates exceed 1% in both independent phases for all ten shapes
 against this explicit unfused baseline. These larger ratios also include
 the difference between FP32 cuBLAS arithmetic and BF16 Tensor Core GEMM.
 They do not isolate fusion alone. The faster, accuracy-compatible unfused
-row-scale/cuBLAS baseline remains the basis of the headline 9/10 counts.
+row-scale/cuBLAS baseline remains the basis of the snapshot's 9/10 counts.
 Both baseline timings and candidate ratios are in
 `b200_ads_blackwell_snapshot.csv`.
 
@@ -300,7 +319,7 @@ ADS uses one kernel per call; selected Triton uses one or two. The selected
 GPU remains exclusive throughout. Raw receipts, IR and traces remain local;
 only the sanitized twenty-row CSV is exported.
 
-### What the comparison shows
+### What the snapshot diagnostics show
 
 Plain Triton already emits Blackwell `tcgen05.mma` instructions in this
 compiler. ADS additionally uses TMA and TMEM, a persistent schedule and
@@ -313,9 +332,10 @@ At M128/K1024/N3072, both selected kernels use BM64/BN64/BK64. ADS has 256
 threads and 65924 bytes of shared memory, versus 128 threads and 49168
 bytes for Triton; its static PTX has 52 barrier lines versus 27. The controlled
 follow-up below identifies excessive subdivision of the normalization
-reduction as a recoverable cause of the small-shape regression.
+reduction as a recoverable cause of the measured snapshot's small-shape
+regression.
 
-### M128 root cause and schedule improvement
+### M128 snapshot root cause and schedule improvement
 
 The selected schedule divided each BK64 activation tile into sixteen
 four-element reduction subtiles. Across sixteen K iterations, this creates
@@ -365,7 +385,7 @@ The existing runner now searches the six original ADS schedules plus the
 eight-subtile candidate. The supplied ADS JIT bodies remain unchanged.
 The complete ablation is in [b200_ads_m128_ablation.csv](b200_ads_m128_ablation.csv).
 
-### Follow-up seven-configuration search: independent retest results
+### Snapshot follow-up seven-configuration search: independent retest results
 
 The full ten-shape run was repeated after adding the reduction candidate.
 The table uses only timings from this fresh run. The original measurements
@@ -384,8 +404,8 @@ remain in `b200_ads_blackwell_snapshot.csv`.
 | 524288 | 512 | 512 | 311.238 | 534.960 | 838.864 | 2.695x |
 | 262144 | 512 | 2048 | 556.742 | 1103.573 | 1252.379 | 2.249x |
 
-ADS exceeds 1% speedup against the faster unfused control in both phases
-for **10/10 shapes**, with M128 gains of 1.166x initially and 1.171x in
+The tested ADS snapshot exceeds 1% speedup against the faster unfused control
+in both phases for **10/10 shapes**, with M128 gains of 1.166x initially and 1.171x in
 retest. It is faster than Triton on all ten shapes. Triton also exceeds
 the 1% threshold on all ten shapes in this fresh run; its M128 margin is
 only 1.31% in retest and was not confirmed in the earlier run, so that
@@ -405,4 +425,6 @@ contracts are unchanged. Both unfused baseline timings are exported in
 The ratios include scheduling, tile and implementation differences; they
 do not isolate the contribution of normalization fusion alone. This is a
 gamma-free forward operator study, with no full-model or training claim.
-The exact pinned public-source comparison remains outstanding.
+The exact pinned public-source comparison or an explicit source-diff audit
+remains outstanding. No conclusions about the pinned public implementation
+are established by these snapshot diagnostics.

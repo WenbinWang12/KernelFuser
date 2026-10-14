@@ -101,7 +101,13 @@ remain available. Raw receipts and profiler artifacts stay in ignored
 local output directories. The CSVs contain only sanitized performance
 fields and repository-relative source names.
 
-## B200 ADS Blackwell comparison
+## B200 ADS Blackwell snapshot diagnostics
+
+The checked-in B200 CSVs are **snapshot diagnostics**: all record
+`ads_matches_pinned_public=False`. Their timings, repeatability counts and
+M128 ablation apply only to the measured snapshot. Public-revision claims
+require an exact rerun of commit `2889aefba0d03b3eecf779eed9f4097066ecdc5d`
+or an attached explicit source-diff audit. Neither is currently attached.
 
 The existing E8 runner can compare the original ADS Blackwell JIT with the
 improved plain Triton implementation and separate vendor controls. Supply
@@ -117,6 +123,10 @@ python src/e8_forward_publication.py --b200-ads \
 For another ADS revision, explicitly use `--allow-source-version` and a
 distinct CSV filename. The CSV records the source fingerprint and whether
 it matches the pinned version. No ADS source is copied into this repository.
+CSV exports include `evidence_status` and `publication_eligible`; a passing
+snapshot measurement exports as `snapshot_diagnostic` with
+`publication_eligible=False`. Correctness and timing gates alone do not
+validate public-source provenance.
 
 The bounded schedule search keeps the supplied ADS JIT bodies unchanged.
 It includes an eight-subtile RMSNorm reduction schedule to avoid excessive
@@ -138,4 +148,3 @@ rounding boundary; its FP32 correctness result is retained as a diagnostic.
 First-party code is MIT unless a directory states otherwise. The ADS-derived
 SM90 fallback carries its Apache-2.0 attribution notice. PyTorch, Triton,
 `fbtriton`, CUDA, and NVIDIA tooling remain separate dependencies.
-
