@@ -317,7 +317,7 @@ def verify_b200_ads(args):
     if args.smoke:
         shapes = shapes[:1]
     rec = {'schema': 'kernelfuser-b200-ads-rmsnorm-matmul-v1',
-           'status': 'running', 'publication_eligible': False,
+           'status': 'running', 'measurement_eligible': False, 'publication_eligible': False,
            'environment': {'gpu': torch.cuda.get_device_name(),
                            'capability': list(torch.cuda.get_device_capability()),
                            'torch': torch.__version__, 'triton': triton.__version__,
@@ -325,6 +325,8 @@ def verify_b200_ads(args):
            'source_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
            'ads_source_sha256': source_hash,
            'ads_matches_pinned_public': source_hash == ADS_PUBLIC_SHA256,
+           'evidence_status': ('pinned_source_match' if source_hash == ADS_PUBLIC_SHA256
+                               else 'snapshot_diagnostic'),
            'protocol': {'epsilon': 1e-6, 'dtype': 'bfloat16', 'gamma': False,
                         'output_policy': 'all timed arms preallocate output and scratch',
                         'correctness': 'three seeds; FP32 norm-before-GEMM oracle; '
@@ -533,11 +535,13 @@ def verify_b200_ads(args):
         rec['gpu_after'] = rope.gpu_snapshot()
         exclusive = all(r.get('exclusive', False) for r in
                         [before, *rec['gpu_observations'], rec['gpu_after']])
-        rec['publication_eligible'] = rec['status'] == 'passed' and exclusive and not args.smoke
+        rec['measurement_eligible'] = rec['status'] == 'passed' and exclusive and not args.smoke
+        rec['publication_eligible'] = (rec['measurement_eligible']
+                                       and rec['ads_matches_pinned_public'])
         if not exclusive:
             rec['status'] = 'invalid_gpu_exclusivity'
         save()
-    if rec['publication_eligible']:
+    if rec['measurement_eligible']:
         public_rows = []
         for row in rec['rows']:
             initial, retest = row['initial']['arms'], row['retest']['arms']
@@ -562,7 +566,9 @@ def verify_b200_ads(args):
                     max_relative_l2=max(c['relative_l2'] for c in row['correctness'] if c['arm']==name),
                     candidate_config=json.dumps(row['configs'][name], sort_keys=True),
                     ads_source_sha256=source_hash,
-                    ads_matches_pinned_public=rec['ads_matches_pinned_public']))
+                    ads_matches_pinned_public=rec['ads_matches_pinned_public'],
+                    evidence_status=rec['evidence_status'],
+                    publication_eligible=rec['publication_eligible']))
         args.csv.parent.mkdir(parents=True, exist_ok=True)
         with args.csv.open('w', newline='') as handle:
             writer = csv.DictWriter(handle, fieldnames=list(public_rows[0]), lineterminator='\n')
