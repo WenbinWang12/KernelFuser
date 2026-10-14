@@ -79,8 +79,11 @@ def gemm_res_kernel(a_ptr, w_ptr, r_ptr, d_ptr, out_ptr,
                     FUSE_RES: tl.constexpr, GROUP_M: tl.constexpr,
                     BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr,
                     BLOCK_K: tl.constexpr):
-    """out = A@W^T (+ bias d) (+ R if FUSE_RES). Same MMA in every arm, so
-    (fused - host) isolates ONLY the residual add, not a matmul difference."""
+    """out = A@W^T (+ bias d) (+ R if FUSE_RES).
+
+    FUSE_RES participates in the autotune key, so schedules can differ.
+    Use launch_h100_residual for comparisons with an identical fixed schedule.
+    """
     pid = tl.program_id(0)
     pid_m, pid_n = _swizzle(pid, M, N, BLOCK_M, BLOCK_N, GROUP_M)
     offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
@@ -387,3 +390,50 @@ class RmsLmHead(Pattern):
 
 
 PATTERNS = {"gemm_residual": GemmResidual, "rms_lm_head": RmsLmHead}
+
+
+# Explicit H100 schedules; vendor addmm is the measured default.
+H100_RESIDUAL_CONFIGS = {(128,28672,8192):(128,64,64,4,4),
+                        (2048,25600,5120):(128,128,64,8,3),
+                        (512,4096,4096):(128,128,64,8,4)}
+
+def launch_h100_residual(a,w,r,bias,out,*,fused=True):
+    """Preallocated direct Triton launch; callers own input validation.
+
+    Fused and unfused launches use the identical per-shape schedule. The
+    unfused launch writes only GEMM+bias; callers must include residual add.
+    """
+    m,k=a.shape;n=w.shape[0]
+    bm,bn,bk,warps,stages=H100_RESIDUAL_CONFIGS[(m,k,n)]
+    return gemm_res_kernel.fn[(triton.cdiv(m,bm)*triton.cdiv(n,bn),)](
+        a,w,r,bias,out,m,n,k,k,1,k,1,n,1,FUSE_RES=fused,GROUP_M=8,
+        BLOCK_M=bm,BLOCK_N=bn,BLOCK_K=bk,num_warps=warps,num_stages=stages)
+
+
+def gemm_residual(a,w,r,*,backend='vendor'):
+    """Forward BF16 ``A @ W.T + R`` on H100.
+
+    Vendor addmm is the fastest measured default. ``backend='triton'`` uses
+    an explicit schedule for the three measured shapes in CONFIGS; it is a
+    useful fusion experiment, and currently slower than vendor addmm.
+    """
+    if backend not in ('vendor','triton'):
+        raise ValueError('Expected vendor or triton backend')
+    if a.ndim!=2 or w.ndim!=2 or r.ndim!=2 or a.shape[1]!=w.shape[1] or r.shape!=(a.shape[0],w.shape[0]):
+        raise ValueError('Expected A [M,K], W [N,K], R [M,N]')
+    if any(t.requires_grad for t in (a,w,r)):
+        raise ValueError('This API is forward-only')
+    if any(not t.is_cuda or t.device!=a.device or t.dtype!=torch.bfloat16 or not t.is_contiguous() for t in (a,w,r)):
+        raise ValueError('Inputs must be contiguous BF16 on one CUDA device')
+    if min(*a.shape,w.shape[0])<1:
+        raise ValueError('Expected positive dimensions')
+    if torch.cuda.get_device_capability(a.device)[0]!=9:
+        raise ValueError('These schedules were measured on SM90/Hopper')
+    with torch.cuda.device(a.device):
+        if backend=='vendor':
+            return torch.addmm(r,a,w.t())
+        if (a.shape[0],a.shape[1],w.shape[0]) not in H100_RESIDUAL_CONFIGS:
+            raise ValueError('No measured Triton schedule for this shape')
+        out=torch.empty_like(r);bias=torch.zeros(w.shape[0],device=a.device,dtype=a.dtype)
+        launch_h100_residual(a,w,r,bias,out)
+        return out

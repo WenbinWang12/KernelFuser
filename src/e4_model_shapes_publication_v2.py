@@ -123,4 +123,177 @@ def main():
         rec['rows'].append(row); out.write_text(json.dumps(rec,indent=2,default=str)+'\n'); print('DONE',label,row['status'],flush=True)
         del aarms; torch.cuda.empty_cache()
     rec['status']='tested_pass' if rec['rows'] and all(r['status']=='tested_pass' and r.get('publication_gate',{}).get('pass') for r in rec['rows']) else 'tested_invalid'; rec['publication_eligible']=rec['status']=='tested_pass'; out.write_text(json.dumps(rec,indent=2,default=str)+'\n'); print('COMPLETE',rec['status'],len(rec['rows']),flush=True)
-if __name__=='__main__': main()
+
+
+# H100 refinement APIs and development-only verification.
+import sys
+import triton
+import e1_rope_publication_v1 as rope
+from fusion_harness import paired as device_paired, compiler_evidence
+def tune_h100_residual(args):
+    args.out.mkdir(parents=True, exist_ok=True)
+    torch.backends.cuda.matmul.allow_tf32 = False
+    rec = {'environment': {'triton': triton.__version__, 'torch': torch.__version__}, 'rows': []}
+    mon = rope.ExclusiveMonitor()
+    rec['gpu_before'] = rope.gpu_snapshot()
+    mon.start()
+    configs = [(128, 256, 64, 8, 3), (128, 128, 64, 8, 3), (64, 128, 64, 4, 3), (128, 64, 64, 4, 3), (64, 64, 64, 4, 3)]
+    try:
+        for m, k, n in [(128, 28672, 8192), (2048, 25600, 5120), (512, 4096, 4096)]:
+            torch.manual_seed(1909)
+            a = torch.randn((m, k), device='cuda', dtype=torch.bfloat16) * k ** (-0.5)
+            w = torch.randn((n, k), device='cuda', dtype=torch.bfloat16) * k ** (-0.5)
+            r = torch.randn((m, n), device='cuda', dtype=torch.bfloat16)
+            bias = torch.zeros(n, device='cuda', dtype=torch.bfloat16)
+            ref = a.float() @ w.float().t() + r.float()
+            arms = {}
+            checks = {}
+            evidence = {}
+            chosen = {}
+            for flag in (False, True):
+                name = 'original_auto_fused' if flag else 'original_auto_unfused'
+                out = torch.empty_like(r)
+                tmp = torch.empty_like(r)
+
+                def call(out=out, tmp=tmp, flag=flag):
+                    kernel = ep.gemm_res_kernel[lambda meta: (triton.cdiv(m, meta['BLOCK_M']) * triton.cdiv(n, meta['BLOCK_N']),)](a, w, r, bias, out if flag else tmp, m, n, k, k, 1, k, 1, n, 1, FUSE_RES=flag)
+                    if not flag:
+                        ep._add_kernel[triton.cdiv(m * n, 4096),](tmp, r, out, m * n, 4096, num_warps=8)
+                    return kernel
+                compiled = call()
+                chosen[name] = str(ep.gemm_res_kernel.best_config)
+                check = rope.metric(out, ref)
+                check['pass'] = bool(torch.allclose(out.float(), ref, atol=0.05, rtol=0.05))
+                checks[name] = check
+                arms[name] = call
+                if compiled is not None:
+                    evidence[name] = compiler_evidence(compiled, args.out / 'compiler', f'{m}_{k}_{n}_{name}')
+            for bm, bn, bk, warps, stages in configs:
+                for flag in (False, True):
+                    name = f"{('fused' if flag else 'unfused')}_{bm}_{bn}_{bk}_{warps}_{stages}"
+                    out = torch.empty_like(r)
+                    tmp = torch.empty_like(r)
+
+                    def call(out=out, tmp=tmp, flag=flag, bm=bm, bn=bn, bk=bk, warps=warps, stages=stages):
+                        kernel = ep.gemm_res_kernel.fn[triton.cdiv(m, bm) * triton.cdiv(n, bn),](a, w, r, bias, out if flag else tmp, m, n, k, k, 1, k, 1, n, 1, FUSE_RES=flag, GROUP_M=8, BLOCK_M=bm, BLOCK_N=bn, BLOCK_K=bk, num_warps=warps, num_stages=stages)
+                        if not flag:
+                            ep._add_kernel[triton.cdiv(m * n, 4096),](tmp, r, out, m * n, 4096, num_warps=8)
+                        return kernel
+                    try:
+                        compiled = call()
+                        checks[name] = {'pass': bool(torch.allclose(out.float(), ref, atol=0.05, rtol=0.05))}
+                        evidence[name] = compiler_evidence(compiled, args.out / 'compiler', f'{m}_{k}_{n}_{name}')
+                        if checks[name]['pass']:
+                            arms[name] = call
+                    except Exception as exc:
+                        checks[name] = {'pass': False, 'error': repr(exc)}
+            vendor_out = torch.empty_like(r)
+            arms['vendor_addmm'] = lambda: torch.addmm(r, a, w.t(), out=vendor_out)
+            arms['vendor_addmm']()
+            checks['vendor_addmm'] = {'pass': bool(torch.allclose(vendor_out.float(), ref, atol=0.05, rtol=0.05))}
+            assert checks['original_auto_fused']['pass'] and checks['original_auto_unfused']['pass'] and checks['vendor_addmm']['pass']
+            row = {'shape': [m, k, n], 'correctness': checks, 'compiler': evidence, 'autotune_choices': chosen, 'timing': device_paired(arms, rounds=5, samples=7, replays=20, seed=33109)}
+            rec['rows'].append(row)
+            (args.out / 'results.json').write_text(json.dumps(rec, indent=2) + '\n')
+            print(row['shape'], chosen, sorted([(n, round(t['median_us'], 3)) for n, t in row['timing']['arms'].items()], key=lambda x: x[1]), flush=True)
+        rec['status'] = 'passed'
+    finally:
+        rec['gpu_observations'] = mon.finish()
+        rec['gpu_after'] = rope.gpu_snapshot()
+        (args.out / 'results.json').write_text(json.dumps(rec, indent=2) + '\n')
+
+def verify_h100_residual(args):
+    args.out.mkdir(parents=True, exist_ok=True)
+    torch.backends.cuda.matmul.allow_tf32 = False
+    rec = {'environment': {'torch': torch.__version__, 'triton': triton.__version__}, 'rows': [], 'source_hashes': {Path(m.__file__).name: hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest() for m in (ep, rope)}}
+    mon = rope.ExclusiveMonitor()
+    rec['gpu_before'] = rope.gpu_snapshot()
+    mon.start()
+    try:
+        originals = {(128, 28672, 8192): (128, 64, 64, 4, 4), (2048, 25600, 5120): (128, 256, 64, 8, 3), (512, 4096, 4096): (128, 128, 64, 8, 4)}
+        for shape in ep.H100_RESIDUAL_CONFIGS:
+            m, k, n = shape
+            torch.manual_seed(5909)
+            a = torch.randn((m, k), device='cuda', dtype=torch.bfloat16) * k ** (-0.5)
+            w = torch.randn((n, k), device='cuda', dtype=torch.bfloat16) * k ** (-0.5)
+            r = torch.randn((m, n), device='cuda', dtype=torch.bfloat16)
+            bias = torch.zeros(n, device='cuda', dtype=torch.bfloat16)
+            ref = a.float() @ w.float().t() + r.float()
+            arms = {}
+            outputs = {}
+            evidence = {}
+            for name, config in [('original_selected', originals[shape]), ('improved', ep.H100_RESIDUAL_CONFIGS[shape])]:
+                for flag in (False, True):
+                    label = name + ('_fused' if flag else '_unfused')
+                    out = torch.empty_like(r)
+                    tmp = torch.empty_like(r)
+                    bm, bn, bk, warps, stages = config
+
+                    def call(out=out, tmp=tmp, flag=flag, bm=bm, bn=bn, bk=bk, warps=warps, stages=stages):
+                        kernel = ep.gemm_res_kernel.fn[triton.cdiv(m, bm) * triton.cdiv(n, bn),](a, w, r, bias, out if flag else tmp, m, n, k, k, 1, k, 1, n, 1, FUSE_RES=flag, GROUP_M=8, BLOCK_M=bm, BLOCK_N=bn, BLOCK_K=bk, num_warps=warps, num_stages=stages)
+                        if not flag:
+                            ep._add_kernel[triton.cdiv(m * n, 4096),](tmp, r, out, m * n, 4096, num_warps=8)
+                        return kernel
+                    arms[label] = call
+                    outputs[label] = out
+                    evidence[label] = compiler_evidence(call(), args.out / 'compiler', f'{m}_{k}_{n}_{label}')
+            vo = torch.empty_like(r)
+            arms['vendor_addmm'] = lambda: torch.addmm(r, a, w.t(), out=vo)
+            outputs['vendor_addmm'] = vo
+            checks = {}
+            for name, call in arms.items():
+                call()
+                checks[name] = bool(torch.allclose(outputs[name].float(), ref, atol=0.05, rtol=0.05))
+                assert checks[name], (shape, name)
+            timing = device_paired(arms, rounds=5, samples=7, replays=20, seed=6109)
+            public_checks = []
+            for seed in (6909, 7909, 8909):
+                torch.manual_seed(seed)
+                aa = torch.randn_like(a)
+                ww = torch.randn_like(w) * k ** (-0.5)
+                rr = torch.randn_like(r)
+                reference = aa.float() @ ww.float().t() + rr.float()
+                for backend in ('triton', 'vendor'):
+                    yy = ep.gemm_residual(aa, ww, rr, backend=backend)
+                    check = bool(torch.allclose(yy.float(), reference, atol=0.05, rtol=0.05))
+                    assert check, (shape, seed, backend)
+                    public_checks.append({'seed': seed, 'backend': backend, 'pass': check})
+            rec['rows'].append({'shape': shape, 'correctness': checks, 'compiler': evidence, 'retest': timing, 'public_api_checks': public_checks})
+            print(shape, {n: round(v['median_us'], 3) for n, v in timing['arms'].items()}, flush=True)
+        rec['attention_api_checks'] = []
+        for model, rotary in [('Qwen3-8B', True), ('Gemma-3-4B', False)]:
+            for s in (33, 129):
+                for causal in (False, True):
+                    xs = rope.refinement_inputs(model, 1, s, 9909, rotary)
+                    reference = rope.refinement_oracle(xs, causal, rotary)
+                    for mode in ('query', 'unfused'):
+                        for bn in (64, 128):
+                            yy = rope.optimized_attention(*xs[:5], *(xs[5:] if rotary else ()), causal=causal, mode=mode, bn=bn, norm_style='hf' if rotary else 'legacy')
+                            check = rope.metric(yy, reference)
+                            assert check['pass'], (model, s, mode, bn, check)
+                            rec['attention_api_checks'].append({'model': model, 's': s, 'causal': causal, 'mode': mode, 'bn': bn, **check})
+        xs = rope.refinement_inputs('Qwen3-8B', 1, 33, 9909, True)
+        rec['invalid_api_checks'] = []
+        for kwargs in ({'mode': 'bad'}, {'bn': 31}, {'norm_style': 'bad'}):
+            try:
+                rope.optimized_attention(*xs, **kwargs)
+            except ValueError:
+                rec['invalid_api_checks'].append({'kwargs': kwargs, 'pass': True})
+            else:
+                raise AssertionError(kwargs)
+        rec['status'] = 'passed'
+    finally:
+        rec['gpu_observations'] = mon.finish()
+        rec['gpu_after'] = rope.gpu_snapshot()
+        (args.out / 'results.json').write_text(json.dumps(rec, indent=2) + '\n')
+
+if __name__ == '__main__':
+    if '--refine' in sys.argv or '--tune' in sys.argv:
+        parser=argparse.ArgumentParser(description='H100 residual schedule refinement')
+        parser.add_argument('--refine',action='store_true')
+        parser.add_argument('--tune',action='store_true')
+        parser.add_argument('--out',type=Path,required=True)
+        args=parser.parse_args()
+        (tune_h100_residual if args.tune else verify_h100_residual)(args)
+    else:
+        main()
