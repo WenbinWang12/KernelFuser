@@ -282,7 +282,10 @@ def main():
             bm, bn, stages, warps = (64, 128, 3, 4) if m < 512 else (128, 128, 3, 4)
             bk = 64
             if m == 128:
-                bm, bn, bk, stages = 64, 128, 128, 4
+                if site == "qkv":
+                    bm, bn, bk, stages = 64, 128, 128, 4
+                else:
+                    bm, bn, bk, stages = 128, 128, 64, 3
             row["schedule"] = {"bm": bm, "bn": bn, "bk": bk, "stages": stages, "warps": warps}
             default = torch.compile(unfused, fullgraph=True, dynamic=False)
             maximum = torch.compile(unfused, fullgraph=True, dynamic=False, mode="max-autotune")
@@ -388,8 +391,11 @@ def main():
                 # Max-autotune may choose a Triton GEMM template rather than
                 # extern_kernels. Prove that a BF16 normalized-input buffer
                 # is written by the reduction and consumed by a distinct GEMM.
-                materialized_norm = bool(re.search(r"triton_red[^\n]*\.run\([^\n]*buf(\d+)", code))
-                separate_template = "triton_tem" in code and "addmm" in code and materialized_norm
+                norm_buffer = re.search(r"triton_red[^\n]*\.run\([^\n]*\b(buf\d+)", code)
+                materialized_norm = bool(norm_buffer)
+                template_calls = [line for line in code.splitlines() if "triton_tem" in line and ".run(" in line]
+                separate_template = bool(norm_buffer) and "addmm" in code and any(
+                    re.search(r"\b" + norm_buffer.group(1) + r"\b", line) for line in template_calls)
                 status = "not_fused" if separate_norm and (external_gemm or separate_template) and count >= 2 else "compiler_already_fused" if count == 1 and "rsqrt" in code else "unknown"
                 statuses.append(status)
                 reports[label] = {"status": status, "kernel_count": count,
