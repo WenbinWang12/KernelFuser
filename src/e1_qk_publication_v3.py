@@ -492,15 +492,12 @@ class ExclusiveMonitor:
   return self.records
 
 def trace(fn,cfg,s,path,training=False):
- path.parent.mkdir(parents=True,exist_ok=True); xs,dy=inputs(cfg,s,1701,training)
- with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,torch.profiler.ProfilerActivity.CUDA],record_shapes=True) as prof:
-  with torch.profiler.record_function('candidate.forward_backward' if training else 'candidate.forward'):
-   y=fn(*xs)
-   if training: torch.autograd.grad(y,xs,dy)
-  torch.cuda.synchronize()
- raw=path.with_suffix(''); prof.export_chrome_trace(str(raw))
- with raw.open('rb') as f,gzip.open(path,'wb') as z:z.write(f.read())
- raw.unlink()
+ from fusion_harness import capture_gpu_trace
+ xs,dy=inputs(cfg,s,1701,training)
+ def call():
+  y=fn(*xs)
+  if training: torch.autograd.grad(y,xs,dy)
+ capture_gpu_trace(call,path,'candidate.forward_backward' if training else 'candidate.forward')
 
 def main():
  ap=argparse.ArgumentParser(); ap.add_argument('--output',required=True); ap.add_argument('--models',default=','.join(MODELS)); ap.add_argument('--sizes',default='128,256,384,512,768,1024,1536,2048'); ap.add_argument('--causal-modes',default='false,true'); ap.add_argument('--rounds',type=int,default=5); ap.add_argument('--samples',type=int,default=100); a=ap.parse_args()

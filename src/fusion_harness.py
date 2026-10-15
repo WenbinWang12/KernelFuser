@@ -107,3 +107,33 @@ def metric(candidate, reference, atol=.025, rtol=.025):
     return {"pass": bool(torch.allclose(candidate.float(), reference.float(), atol=atol, rtol=rtol)),
             "max_abs": delta.abs().max().item(),
             "relative_l2": (delta.norm() / reference.float().norm().clamp_min(1e-12)).item()}
+
+
+def capture_gpu_trace(fn, path, label, attempts=3):
+    """Capture GPU events, retaining failed captures for private audit.
+
+    A nonempty Chrome file can contain CPU events only. Retry profiler setup
+    without timing the operation again, and reject an arm with no GPU kernels.
+    """
+    import gzip
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    for attempt in range(attempts):
+        torch.cuda.synchronize()
+        with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,
+                                               torch.profiler.ProfilerActivity.CUDA]) as profile:
+            with torch.profiler.record_function(label):
+                fn()
+            torch.cuda.synchronize()
+        raw = path.with_suffix("")
+        profile.export_chrome_trace(str(raw))
+        payload = raw.read_bytes()
+        events = json.loads(payload).get("traceEvents", [])
+        kernels = [event for event in events if event.get("cat") == "kernel"]
+        target = path if kernels else path.with_name(path.name + f".failed{attempt}.gz")
+        with gzip.open(target, "wb") as handle:
+            handle.write(payload)
+        raw.unlink()
+        if kernels:
+            return str(path)
+    raise RuntimeError("Profiler captured no GPU kernel events after retries")

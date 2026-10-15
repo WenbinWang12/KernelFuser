@@ -342,13 +342,8 @@ class ExclusiveMonitor:
         self.stop.set(); self.thread.join(timeout=max(5.0, self.interval*3)); return self.records
 
 def capture_trace(fn,path,label):
-    path=Path(path); path.parent.mkdir(parents=True,exist_ok=True)
-    with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,torch.profiler.ProfilerActivity.CUDA]) as p:
-        with torch.profiler.record_function(label): fn()
-        torch.cuda.synchronize()
-    raw=Path(str(path)[:-3]); p.export_chrome_trace(str(raw))
-    with raw.open('rb') as f, gzip.open(path,'wb') as z: z.write(f.read())
-    raw.unlink(missing_ok=True); return str(path)
+    from fusion_harness import capture_gpu_trace
+    return capture_gpu_trace(fn,path,label)
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--models',default=','.join(MODELS)); ap.add_argument('--sizes',default='128,256,384,512'); ap.add_argument('--batches',default='1,8,32'); ap.add_argument('--causal-modes',default='false,true'); ap.add_argument('--rounds',type=int,default=5); ap.add_argument('--samples',type=int,default=40); ap.add_argument('--output',required=True); ap.add_argument('--trace-dir',default=''); ap.add_argument('--smoke',action='store_true'); a=ap.parse_args()
