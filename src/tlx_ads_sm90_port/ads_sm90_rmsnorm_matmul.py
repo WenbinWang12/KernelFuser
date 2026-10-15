@@ -149,6 +149,17 @@ def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.cons
     rm = tl.program_id(0) * BM + tl.arange(0, BM)
     rn = tl.program_id(1) * BN + tl.arange(0, BN)
     rk = tl.arange(0, BK)
+    if INLINE_RMS:
+        # Finish the scalar reduction before the GEMM pipeline to keep its
+        # vector loads/reductions out of the WGMMA steady-state schedule.
+        # Work still repeats across output-column CTAs, without global scratch.
+        ss = tl.zeros((BM,), tl.float32)
+        for k in tl.range(0, tl.cdiv(K, BK), num_stages=1):
+            kk = k * BK + rk
+            values = tl.load(X + rm[:, None] * K + kk[None, :],
+                             (rm[:, None] < M) & (kk[None, :] < K), 0).to(tl.float32)
+            ss += tl.sum(values * values, axis=1)
+        inverse = tl.rsqrt(ss / K + EPS)
     ap = X + rm[:, None] * K + rk[None, :]
     bp = W + rk[:, None] * N + rn[None, :]
     ab = tlx.local_alloc((BM, BK), tlx.dtype_of(X), STAGES)
@@ -162,18 +173,9 @@ def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.cons
         ap += BK
         bp += BK * N
     acc = tl.zeros((BM, BN), tl.float32)
-    ss = tl.zeros((BM,), tl.float32)
     for k in tl.range(0, tl.cdiv(K, BK), num_stages=1):
         tlx.async_load_wait_group(STAGES - 2)
         acc = tlx.async_dot(tlx.local_view(ab, k % STAGES), tlx.local_view(bb, k % STAGES), acc)
-        if INLINE_RMS:
-            # Independent FP32 reduction can run while WGMMA is outstanding.
-            # Every output CTA computes its row factors; no global scratch or
-            # inter-CTA synchronization is needed. This repeats work across N.
-            kk = k * BK + rk
-            values = tl.load(X + rm[:, None] * K + kk[None, :],
-                             (rm[:, None] < M) & (kk[None, :] < K), 0).to(tl.float32)
-            ss += tl.sum(values * values, axis=1)
         i = k + STAGES - 1
         acc = tlx.async_dot_wait(1, acc)
         ta = tlx.async_load(ap, tlx.local_view(ab, i % STAGES),
@@ -186,7 +188,7 @@ def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.cons
     acc = tlx.async_dot_wait(0, acc)
     if APPLY_RMS:
         if INLINE_RMS:
-            r = tl.rsqrt(ss / K + EPS)
+            r = inverse
         else:
             r = tl.load(R + rm, rm < M, 0)
         acc = acc * r[:, None]
