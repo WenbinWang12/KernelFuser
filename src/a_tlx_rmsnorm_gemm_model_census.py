@@ -358,6 +358,16 @@ def main():
             row["correctness"] = checks
             row["correctness_pass"] = True
             row["max_relative_l2"] = max(check["original_fp32"]["relative_l2"] for check in checks)
+            row["anchor_operator_timing"] = paired(
+                {name: calls[name] for name in ["standalone_tlx", "standalone_cublas"]},
+                rounds=args.rounds, samples=args.samples, replays=args.replays, seed=7109)
+            # The standalone GEMM gate measures device kernel latency. Both
+            # standalone arms use identical fresh graph blocks and CUDA events;
+            # their normal Python dispatch timings are retained separately.
+            anchor = device_paired({name: calls[name] for name in ["standalone_tlx", "standalone_cublas"]},
+                                   rounds=args.rounds, samples=args.samples, replays=args.replays, seed=7109)
+            row["anchor_timing"] = anchor
+            row["anchor_ratio"] = anchor["arms"]["standalone_tlx"]["median_us"] / anchor["arms"]["standalone_cublas"]["median_us"]
             measured = {name: [] for name in ARMS}
             pairs = {}
             for i, baseline in enumerate(ARMS[1:]):
@@ -375,16 +385,6 @@ def main():
                             rounds=args.rounds, samples=args.samples, replays=args.replays, seed=105109)
             row["retest"] = retest
             row["retest_speedup"] = retest["arms"][fastest]["median_us"] / retest["arms"]["candidate"]["median_us"]
-            row["anchor_operator_timing"] = paired(
-                {name: calls[name] for name in ["standalone_tlx", "standalone_cublas"]},
-                rounds=args.rounds, samples=args.samples, replays=args.replays, seed=7109)
-            # The standalone GEMM gate measures device kernel latency. Both
-            # standalone arms use identical fresh graph blocks and CUDA events;
-            # their normal Python dispatch timings are retained separately.
-            anchor = device_paired({name: calls[name] for name in ["standalone_tlx", "standalone_cublas"]},
-                                   rounds=args.rounds, samples=args.samples, replays=args.replays, seed=7109)
-            row["anchor_timing"] = anchor
-            row["anchor_ratio"] = anchor["arms"]["standalone_tlx"]["median_us"] / anchor["arms"]["standalone_cublas"]["median_us"]
             aa = paired({"A1": calls[fastest], "A2": calls[fastest]}, rounds=args.rounds,
                         samples=args.samples, replays=args.replays, seed=8109)
             deviations = [abs(a/b - 1) for a,b in zip(aa["arms"]["A1"]["samples_us"], aa["arms"]["A2"]["samples_us"])]
