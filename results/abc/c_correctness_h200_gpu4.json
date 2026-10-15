@@ -1,48 +1,45 @@
 {
-  "schema": "kernelfuser-abc-c-correctness-smoke-v1",
-  "track": "C",
-  "lane": "dlrm_concat_ln",
-  "status": "correctness_pass_dependency_blocked",
-  "publication_eligible": false,
-  "claim_boundary": "One untimed BF16 CUDA correctness smoke only; no performance result or win-rate claim",
-  "source_commit": "34c5807",
-  "implementation_sha256": "ba9732289869abe08195447c4a08ad893c4d370a77dc17ceb03fe58602622808",
+  "claim_boundary": "One untimed BF16 CUDA correctness smoke only; no performance claim",
   "config_manifest_sha256": "aacaeef0b0fa80a8ba8db254eeb80d8f053693852bb4db7377b4f720d611b833",
-  "shape": {
-    "embedding_dim": 64,
-    "segment_lengths": [1, 4, 16, 64],
-    "segments": 4,
-    "seed": 20261016
-  },
   "correctness": {
-    "reference": "reference_jagged_concat_layernorm (FP32 eager)",
+    "allclose": true,
+    "atol": 0.02,
     "max_abs_error": 0.0,
     "max_relative_error": 0.0,
-    "atol": 0.02,
-    "rtol": 0.02,
-    "allclose": true
+    "reference": "reference_jagged_concat_layernorm (FP32 eager)",
+    "rtol": 0.02
   },
   "environment": {
+    "dtype": "bfloat16",
     "gpu_model": "NVIDIA H200 NVL",
     "physical_gpu": "4",
     "torch": "2.5.1",
-    "triton": "3.1.0",
-    "dtype": "bfloat16"
-  },
-  "timing": {
-    "performed": false,
-    "warmups": 0,
-    "samples": 0
-  },
-  "dependency_smoke": {
-    "status": "blocked_dependency",
-    "torchrec": "unavailable",
-    "fbgemm_gpu": "unavailable",
-    "receipt": "c_smoke_h200_impl.json"
+    "triton": "3.1.0"
   },
   "exclusivity": {
-    "verdict": "pass",
-    "reserved_h200_physical_gpus": [0, 1, 2, 3],
-    "used_physical_gpu": "4"
-  }
+    "physical_gpu": "4"
+  },
+  "implementation_sha256": "ba9732289869abe08195447c4a08ad893c4d370a77dc17ceb03fe58602622808",
+  "lane": "dlrm_concat_ln",
+  "publication_eligible": false,
+  "schema": "kernelfuser-abc-c-correctness-smoke-v1",
+  "shape": {
+    "embedding_dim": 64,
+    "seed": 20261016,
+    "segment_lengths": [
+      1,
+      4,
+      16,
+      64
+    ],
+    "segments": 4
+  },
+  "source_commit": "34c5807",
+  "status": "correctness_pass",
+  "timing": {
+    "performed": false,
+    "samples": 0,
+    "warmups": 0
+  },
+  "track": "C"
 }
