@@ -15,6 +15,20 @@ session transcripts, and private paths.
   `src/norm_into_gemm_kernel.py`: expert-local MoE studies.
 - `src/e4_model_shapes_publication_v2.py`: model-shaped residual epilogue
   runner with explicit `torch.addmm` comparator.
+- `src/a_rmsnorm_gemm_model_shapes.py`: fail-closed A runner for the
+  pre-registered nine-model QKV and concatenated gate/up geometries.  It uses
+  the TLX candidate only, checks three unfused baselines, and emits a
+  `blocked_dependency` receipt when CUDA/TLX/SM90 is unavailable.  Run the
+  one-shape smoke before the full sweep:
+
+  ```bash
+  python src/a_rmsnorm_gemm_model_shapes.py --smoke \
+    --source-commit "$(git rev-parse HEAD)" \
+    --out outputs/a_smoke.json --csv outputs/a_smoke.csv
+  ```
+
+  Raw traces are optional private artifacts (`--trace-dir`); only their hashes
+  enter the receipt.
 - `src/e7_rope_aa.py`: six-shape Qwen3-8B RoPE A/A noise-floor runner.
 - `src/e7_aa_noise_floor_osu_v3.py`: supplementary seven-row A/A controls.
 - `src/e2_qwen3_rope_prefill.py`: Qwen3-8B model-prefill correctness/timing
@@ -22,6 +36,8 @@ session transcripts, and private paths.
 - `src/b_vendor_anchor_smoke.py` and `src/c_jagged_recsys_smoke.py`: CPU/import
   and public-config smoke checks for the pending B/C vendor-anchor tracks.
   They are fail-closed diagnostics and never emit timing or speedup claims.
+- `data/abc/`: the public Qwen3-8B shape smoke config and the fixed C jagged
+  shape manifest. These contain no weights or private production data.
 - `src/e2_gemma_forward_v5_replay.py`: replay-first Gemma candidate retained
   for audit; its withdrawn v2 receipts are not results.
 - `src/swiglu/`, `src/tlx_pilot/`, and `src/tlx_ads_sm90_port/`: reusable

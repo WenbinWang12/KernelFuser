@@ -142,6 +142,10 @@ diagnostic; it does not enter the vendor-anchor win rate.
 Suggested command after the new implementation is reviewed:
 
 ```bash
+python src/b_vendor_anchor_smoke.py \
+  --config-json data/abc/qwen3_8b_config.json \
+  --output outputs/b_import_smoke.json
+
 python src/b_qkv_output_norm_rope.py \
   --models qwen3-8b --batch 1,8,32 --seq 128,256 \
   --out outputs/b_qkv_qwen3_8b.json --trace-dir outputs/b-qkv-traces
@@ -186,6 +190,11 @@ smoke and one tiny CUDA shape; only then enqueue the full H100/H200 sweep.
 Suggested command once the lane is implemented and pinned:
 
 ```bash
+python src/c_jagged_recsys_smoke.py --lane dlrm_concat_ln \
+  --manifest data/abc/c_dlrm_manifest.json \
+  --implementation src/c_dlrm_concat_ln.py \
+  --output outputs/c_import_smoke.json
+
 python src/c_jagged_recsys.py --lane dlrm_concat_ln \
   --lengths data/dlrm_lengths.json --out outputs/c_dlrm_h100.json \
   --trace-dir outputs/c-dlrm-traces
