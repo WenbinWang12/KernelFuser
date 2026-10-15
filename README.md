@@ -19,6 +19,9 @@ session transcripts, and private paths.
 - `src/e7_aa_noise_floor_osu_v3.py`: supplementary seven-row A/A controls.
 - `src/e2_qwen3_rope_prefill.py`: Qwen3-8B model-prefill correctness/timing
   runner; no timing row is emitted when the baseline agreement gate fails.
+- `src/b_vendor_anchor_smoke.py` and `src/c_jagged_recsys_smoke.py`: CPU/import
+  and public-config smoke checks for the pending B/C vendor-anchor tracks.
+  They are fail-closed diagnostics and never emit timing or speedup claims.
 - `src/e2_gemma_forward_v5_replay.py`: replay-first Gemma candidate retained
   for audit; its withdrawn v2 receipts are not results.
 - `src/swiglu/`, `src/tlx_pilot/`, and `src/tlx_ads_sm90_port/`: reusable

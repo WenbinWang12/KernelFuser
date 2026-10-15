@@ -89,13 +89,22 @@ unfused vendor/TLX anchor is no slower than the fastest baseline by more than
 `M=128` optimization-step ablation (old schedule, reduction split, final
 schedule) on one QKV and one gate/up shape per device.
 
-Suggested OSU command after the implementation audit (the runner does not
-exist on `origin/main` yet):
+Suggested OSU commands after the implementation audit (the checked-in runner
+starts with a one-shape smoke; the full sweep is allowed only after that smoke
+passes):
 
 ```bash
-python src/a_tlx_rmsnorm_gemm_model_census.py \
-  --device-tag h100 --sites qkv,gate_up --m 1,8,32,128,512,2048,8192 \
-  --out outputs/a_rmsnorm_gemm_h100.json
+python src/a_rmsnorm_gemm_model_shapes.py --smoke \
+  --source-commit "$(git rev-parse HEAD)" \
+  --trace-dir outputs/a-smoke-traces \
+  --out outputs/a_smoke.json --csv outputs/a_smoke.csv \
+  --rounds 2 --samples 3
+
+# Only after a tested_pass smoke on this exact stack:
+python src/a_rmsnorm_gemm_model_shapes.py \
+  --source-commit "$(git rev-parse HEAD)" \
+  --trace-dir outputs/a-traces \
+  --out outputs/a_rmsnorm_gemm.json --csv outputs/a_rmsnorm_gemm.csv
 ```
 
 Do not report the existing ADS/B200 snapshot as A: it is explicitly marked
@@ -216,9 +225,9 @@ audited.
 5. Update `Experiment.tex` only from promoted rows.  Keep rejected and
    compiler-already-fused rows in the appendix or diagnostic archive.
 
-Current status at handoff: A has a reusable kernel but needs the model-shaped
-census runner; B and C require new implementations.  There are no B/C results
-in this repository.
+Current status at handoff: A has the model-shaped runner and requires the
+one-shape TLX smoke before its census; B and C require new implementations.
+There are no promoted A/B/C performance results in this repository.
 
 ## Exact manifests and row accounting
 
