@@ -1,0 +1,202 @@
+{
+    "schema":  "fusionagent-e2-qwen3-rope-prefill-v1",
+    "model_name":  "Qwen3-8B",
+    "model_path":  "\u003cprivate checkpoint path omitted\u003e",
+    "scope":  "Qwen3-8B causal prefill; native projections/output projection; Q/K RMSNorm+RoPE+attention fused",
+    "source_hash":  "08195d08e40284fd301ef724a9fb40a8e9dedc81dc155ad5033847c91cec002d",
+    "isolated_kernel_source":  "e1_rope_refined_impl.py:optimized_attention(mode=query)",
+    "protocol":  {
+                     "S":  [
+                               128,
+                               256
+                           ],
+                     "B":  [
+                               1,
+                               8,
+                               32
+                           ],
+                     "causal":  true,
+                     "warmup":  1,
+                     "repeats":  1,
+                     "rounds":  1,
+                     "baseline":  "unmodified Qwen3 attention with vendor SDPA",
+                     "compiled_baseline":  "torch.compile(fullgraph=True,dynamic=False,mode=default)",
+                     "candidate":  "K-once RoPE-aware Triton optimized_attention(mode=query)",
+                     "timing":  "randomized paired CUDA-graph replay; no timing before correctness",
+                     "correctness":  "full logits max_abs/relative_l2, top1, and next-token NLL",
+                     "dispatch":  "candidate is selected by exact (B,S) shape; failed rows do not dispatch"
+                 },
+    "environment":  {
+                        "torch":  "2.8.0+cu126",
+                        "cuda":  "12.6",
+                        "torchinductor_compile_threads":  "1"
+                    },
+    "rows":  [
+                 {
+                     "B":  1,
+                     "S":  128,
+                     "causal":  true,
+                     "seed":  9336,
+                     "status":  "fail_candidate_correctness",
+                     "compiled_baseline_check":  {
+                                                     "max_abs":  0.34375,
+                                                     "relative_l2":  0.013649167492985725,
+                                                     "pass":  false,
+                                                     "top1_agreement":  0.9921875,
+                                                     "nll_reference":  13.633892059326172,
+                                                     "nll_candidate":  13.63369369506836,
+                                                     "nll_abs_diff":  0.0001983642578125
+                                                 },
+                     "correctness":  {
+                                         "candidate_vs_vendor":  {
+                                                                     "max_abs":  0.40625,
+                                                                     "relative_l2":  0.012512610293924809,
+                                                                     "pass":  false,
+                                                                     "top1_agreement":  0.96875,
+                                                                     "nll_reference":  13.633892059326172,
+                                                                     "nll_candidate":  13.63440227508545,
+                                                                     "nll_abs_diff":  0.0005102157592773438
+                                                                 }
+                                     }
+                 },
+                 {
+                     "B":  8,
+                     "S":  128,
+                     "causal":  true,
+                     "seed":  10043,
+                     "status":  "fail_candidate_correctness",
+                     "compiled_baseline_check":  {
+                                                     "max_abs":  1.25,
+                                                     "relative_l2":  0.015878083184361458,
+                                                     "pass":  false,
+                                                     "top1_agreement":  0.9853515625,
+                                                     "nll_reference":  13.400620460510254,
+                                                     "nll_candidate":  13.397668838500977,
+                                                     "nll_abs_diff":  0.0029516220092773438
+                                                 },
+                     "correctness":  {
+                                         "candidate_vs_vendor":  {
+                                                                     "max_abs":  0.6875,
+                                                                     "relative_l2":  0.013030560687184334,
+                                                                     "pass":  false,
+                                                                     "top1_agreement":  0.986328125,
+                                                                     "nll_reference":  13.400620460510254,
+                                                                     "nll_candidate":  13.400360107421875,
+                                                                     "nll_abs_diff":  0.00026035308837890625
+                                                                 }
+                                     }
+                 },
+                 {
+                     "B":  32,
+                     "S":  128,
+                     "causal":  true,
+                     "seed":  12467,
+                     "status":  "fail_candidate_correctness",
+                     "compiled_baseline_check":  {
+                                                     "max_abs":  1.375,
+                                                     "relative_l2":  0.016131142154335976,
+                                                     "pass":  false,
+                                                     "top1_agreement":  0.973388671875,
+                                                     "nll_reference":  13.381592750549316,
+                                                     "nll_candidate":  13.379273414611816,
+                                                     "nll_abs_diff":  0.0023193359375
+                                                 },
+                     "correctness":  {
+                                         "candidate_vs_vendor":  {
+                                                                     "max_abs":  0.734375,
+                                                                     "relative_l2":  0.012133263982832432,
+                                                                     "pass":  false,
+                                                                     "top1_agreement":  0.978759765625,
+                                                                     "nll_reference":  13.381592750549316,
+                                                                     "nll_candidate":  13.381468772888184,
+                                                                     "nll_abs_diff":  0.0001239776611328125
+                                                                 }
+                                     }
+                 },
+                 {
+                     "B":  1,
+                     "S":  256,
+                     "causal":  true,
+                     "seed":  9464,
+                     "status":  "fail_candidate_correctness",
+                     "compiled_baseline_check":  {
+                                                     "max_abs":  0.40625,
+                                                     "relative_l2":  0.015027196146547794,
+                                                     "pass":  false,
+                                                     "top1_agreement":  0.97265625,
+                                                     "nll_reference":  13.284663200378418,
+                                                     "nll_candidate":  13.28100299835205,
+                                                     "nll_abs_diff":  0.0036602020263671875
+                                                 },
+                     "correctness":  {
+                                         "candidate_vs_vendor":  {
+                                                                     "max_abs":  0.3125,
+                                                                     "relative_l2":  0.012238774448633194,
+                                                                     "pass":  false,
+                                                                     "top1_agreement":  0.9765625,
+                                                                     "nll_reference":  13.284663200378418,
+                                                                     "nll_candidate":  13.286760330200195,
+                                                                     "nll_abs_diff":  0.0020971298217773438
+                                                                 }
+                                     }
+                 },
+                 {
+                     "B":  8,
+                     "S":  256,
+                     "causal":  true,
+                     "seed":  10171,
+                     "status":  "fail_candidate_correctness",
+                     "compiled_baseline_check":  {
+                                                     "max_abs":  1.0,
+                                                     "relative_l2":  0.014314129948616028,
+                                                     "pass":  false,
+                                                     "top1_agreement":  0.96923828125,
+                                                     "nll_reference":  13.232213020324707,
+                                                     "nll_candidate":  13.230768203735352,
+                                                     "nll_abs_diff":  0.0014448165893554688
+                                                 },
+                     "correctness":  {
+                                         "candidate_vs_vendor":  {
+                                                                     "max_abs":  0.390625,
+                                                                     "relative_l2":  0.01165698654949665,
+                                                                     "pass":  false,
+                                                                     "top1_agreement":  0.97509765625,
+                                                                     "nll_reference":  13.232213020324707,
+                                                                     "nll_candidate":  13.231402397155762,
+                                                                     "nll_abs_diff":  0.0008106231689453125
+                                                                 }
+                                     }
+                 },
+                 {
+                     "B":  32,
+                     "S":  256,
+                     "causal":  true,
+                     "seed":  12595,
+                     "status":  "fail_candidate_correctness",
+                     "compiled_baseline_check":  {
+                                                     "max_abs":  1.9375,
+                                                     "relative_l2":  0.01519190613180399,
+                                                     "pass":  false,
+                                                     "top1_agreement":  0.9757080078125,
+                                                     "nll_reference":  13.199687957763672,
+                                                     "nll_candidate":  13.199021339416504,
+                                                     "nll_abs_diff":  0.0006666183471679688
+                                                 },
+                     "correctness":  {
+                                         "candidate_vs_vendor":  {
+                                                                     "max_abs":  0.625,
+                                                                     "relative_l2":  0.011980527080595493,
+                                                                     "pass":  false,
+                                                                     "top1_agreement":  0.9781494140625,
+                                                                     "nll_reference":  13.199687957763672,
+                                                                     "nll_candidate":  13.200430870056152,
+                                                                     "nll_abs_diff":  0.0007429122924804688
+                                                                 }
+                                     }
+                 }
+             ],
+    "status":  "tested_with_errors",
+    "publication_eligible":  false,
+    "sanitized_for_public":  true,
+    "sanitization_note":  "Removed checkpoint paths, hostnames, GPU identifiers, process IDs and compute-app details."
+}

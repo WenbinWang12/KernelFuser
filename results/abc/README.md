@@ -54,3 +54,5 @@ vendor-anchor gate.  No A number from these files belongs in `Experiment.tex`.
   baseline and the candidate both fail the strict full-logit/top-1 gate; no
   timing was recorded.  The maximum candidate-versus-vendor relative L2 is
   0.01251 and top-1 agreement is 0.96875.  It is not publication-eligible.
+
+* e2_h200_gpu5_s128_s256_contig.json is the six-row H200 GPU5 follow-up (B=1/8/32, S=128/256). All six compiled baselines build with one Inductor compile thread, but all six candidate correctness gates fail on full logits/top-1; no timing is recorded and publication_eligible=false. H200 cards 0--3 remain unused.
