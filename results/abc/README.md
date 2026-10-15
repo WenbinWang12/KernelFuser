@@ -34,3 +34,8 @@ for the full pre-registered scope and promotion rules.
 These two receipts explain why the A census was not promoted: installing TLX
 solves the import problem, but the SM90 port still fails the pre-registered
 vendor-anchor gate.  No A number from these files belongs in `Experiment.tex`.
+
+* `c_import_h100.json` and `c_import_h200.json` rerun the C smoke after the
+  candidate source was added.  The implementation and fixed manifest are
+  syntax/manifest-valid on both stacks, but TorchRec and FBGEMM are absent;
+  both receipts remain `blocked_dependency` with no timing claim.

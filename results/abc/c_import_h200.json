@@ -1,0 +1,61 @@
+{
+  "checks": {
+    "fbgemm_gpu": {
+      "available": false,
+      "error": "No module named 'fbgemm_gpu'",
+      "error_type": "ModuleNotFoundError"
+    },
+    "torch": {
+      "available": true,
+      "version": "2.8.0+cu126"
+    },
+    "torchrec": {
+      "available": false,
+      "error": "No module named 'torchrec'",
+      "error_type": "ModuleNotFoundError"
+    },
+    "torchrec_jagged_tensor": {
+      "available": false,
+      "error": "No module named 'torchrec'",
+      "error_type": "ModuleNotFoundError"
+    },
+    "triton": {
+      "available": true,
+      "version": "3.7.4+fb"
+    }
+  },
+  "claim_boundary": "CPU/import/source-manifest smoke only; no timing or performance claim",
+  "implementation": {
+    "file_name": "c_dlrm_concat_ln.py",
+    "file_sha256": "ba9732289869abe08195447c4a08ad893c4d370a77dc17ceb03fe58602622808",
+    "status": "syntax_valid"
+  },
+  "lane": "dlrm_concat_ln",
+  "plan": {
+    "path": "experiments/ABC_VENDOR_ANCHOR_PLAN.md",
+    "sha256": "749119eec0cd56ac859fd93c1ed81a4039c0f59d0f4eb0c51f47b3cb18370e1e"
+  },
+  "publication_eligible": false,
+  "reasons": [
+    "torchrec_jagged_dependency_missing"
+  ],
+  "schema": "kernelfuser-abc-c-import-smoke-v1",
+  "shape_manifest": {
+    "file_name": "c_dlrm_manifest.json",
+    "file_sha256": "aacaeef0b0fa80a8ba8db254eeb80d8f053693852bb4db7377b4f720d611b833",
+    "keys": [
+      "batch",
+      "embedding_dim",
+      "feature_count",
+      "lane",
+      "padding_hidden_from_timing",
+      "per_feature_length",
+      "seed",
+      "source"
+    ],
+    "status": "valid"
+  },
+  "source_sha256": "782e33696bfe6483337fe648ae397f5e8c56da491d1a03d3039150b9fe5f7620",
+  "status": "blocked_dependency",
+  "track": "C"
+}
