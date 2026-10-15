@@ -1,0 +1,2 @@
+model,site,M,seed,K,N,candidate_us,fastest_baseline_us,speedup_vs_fastest,anchor_p50_us,cublas_p50_us,retest,fastest_baseline,correctness_pass,anchor_ratio,anchor_gate,status
+Qwen3-8B,qkv,128,20261015,4096,6144,135.77599823474884,68.14400106668472,0.5018854727833979,57.66399949789047,31.120000407099724,no,separate_norm_cublas,True,1.8529562578262369,False,anchor_gate_failed

@@ -21,3 +21,16 @@ included beside the H200 receipts. The H100 A TLX smoke remains queued on
 physical card 0 because that card is busy. H200 cards 0--3 were not used.
 See [`experiments/ABC_VENDOR_ANCHOR_PLAN.md`](../../experiments/ABC_VENDOR_ANCHOR_PLAN.md)
 for the full pre-registered scope and promotion rules.
+
+* `a_smoke_h100_gpu1_fbtriton.json` is a fresh H100 TLX-toolchain smoke.  The
+  full RMSNorm->GEMM output is numerically correct, but the standalone TLX
+  anchor is 1.481x the cuBLAS anchor and the row is `anchor_gate_failed`.
+* `a_smoke_h200_gpu5_torch28_patched.json` is the corresponding H200 user-space
+  fbtriton/Torch 2.8 smoke on allowed physical card 5.  Correctness passes,
+  while the TLX/cuBLAS anchor ratio is 1.853x; it is also
+  `publication_eligible=false`.  This alternate environment is retained as a
+  toolchain diagnostic and is not pooled with the formal H200 release stack.
+
+These two receipts explain why the A census was not promoted: installing TLX
+solves the import problem, but the SM90 port still fails the pre-registered
+vendor-anchor gate.  No A number from these files belongs in `Experiment.tex`.
