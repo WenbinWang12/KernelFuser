@@ -1,0 +1,138 @@
+{
+  "schema": "kernelfuser-a-rmsnorm-gemm-v1",
+  "status": "tested_invalid",
+  "publication_eligible": false,
+  "source_commit": "37a98e7-torch28-fb374-patched",
+  "environment": {
+    "torch": "2.8.0+cu126",
+    "python": "3.12.1",
+    "cuda_runtime": "12.6",
+    "cuda_available": true,
+    "triton": "3.7.4+fb",
+    "device": "NVIDIA H200 NVL",
+    "capability": [
+      9,
+      0
+    ]
+  },
+  "candidate": {
+    "candidate_source_sha256": "6340d29b7093d262c13651085829cf73226962553082feb6114466ee3ddc460c",
+    "candidate_implementation": "tlx_ads_sm90_port.ads_sm90_rmsnorm_matmul.launch",
+    "candidate_invocation": "module.launch('tlx', x, w_tlx, out)",
+    "candidate_scope": "SM90 ADS-derived TLX port; forward-only; not upstream SM100 TLX"
+  },
+  "source_sha256": "70cd396282c3d96461f332ecd6cd7227ce60f941b738abfa5c1e024aff7459c3",
+  "runner_source_sha256": "70cd396282c3d96461f332ecd6cd7227ce60f941b738abfa5c1e024aff7459c3",
+  "geometry_config_sha256": "48367f40d9adef63b8c2161e491775e1cabbbeac1e8411d32355d6e705bdab89",
+  "config_manifest_sha256": "48367f40d9adef63b8c2161e491775e1cabbbeac1e8411d32355d6e705bdab89",
+  "protocol": {
+    "dtype": "bfloat16",
+    "epsilon": 1e-06,
+    "rounds": 2,
+    "samples": 3,
+    "warmup": 5,
+    "paired_randomized": true,
+    "traces": "disabled",
+    "correctness_before_timing": true,
+    "anchor_gate": "tlx_anchor_p50_us / cublas_p50_us <= 1.01",
+    "fastest_baseline_rule": "minimum of separate_norm_cublas, row_scale_cublas, torch_compile_max_autotune",
+    "claim_boundary": "forward-only operator; public geometry; no checkpoint/full-model claim"
+  },
+  "rows": [
+    {
+      "model": "Qwen3-8B",
+      "site": "qkv",
+      "M": 128,
+      "seed": 20261015,
+      "geometry": {
+        "projection": "qkv",
+        "hidden": 4096,
+        "q_heads": 32,
+        "kv_heads": 8,
+        "head_dim": 128,
+        "intermediate": 12288,
+        "config_ref": "Qwen/Qwen3-8B:config.json",
+        "N": 6144
+      },
+      "correctness": {
+        "separate_norm_cublas": {
+          "max_abs": 0.03125,
+          "relative_l2": 0.0025579475332051516,
+          "finite": true,
+          "allclose": true
+        },
+        "row_scale_cublas": {
+          "max_abs": 0.03125,
+          "relative_l2": 0.0025364893954247236,
+          "finite": true,
+          "allclose": true
+        },
+        "torch_compile_max_autotune": {
+          "max_abs": 0.03125,
+          "relative_l2": 0.0025579475332051516,
+          "finite": true,
+          "allclose": true
+        },
+        "tlx_fused": {
+          "max_abs": 0.03125,
+          "relative_l2": 0.002628367394208908,
+          "finite": true,
+          "allclose": true
+        }
+      },
+      "status": "anchor_gate_failed",
+      "timing_us": {
+        "separate_norm_cublas": {
+          "n": 6.0,
+          "median_us": 68.14400106668472,
+          "mean_us": 70.16000027457874,
+          "min_us": 64.70400094985962,
+          "max_us": 77.53600180149078
+        },
+        "row_scale_cublas": {
+          "n": 6.0,
+          "median_us": 76.1600024998188,
+          "mean_us": 79.25866668423016,
+          "min_us": 68.03199648857117,
+          "max_us": 97.79199957847595
+        },
+        "torch_compile_max_autotune": {
+          "n": 6.0,
+          "median_us": 117.34399944543839,
+          "mean_us": 117.58933340509732,
+          "min_us": 112.22399771213531,
+          "max_us": 125.02400577068329
+        },
+        "tlx_fused": {
+          "n": 6.0,
+          "median_us": 135.77599823474884,
+          "mean_us": 134.87999637921652,
+          "min_us": 130.17599284648895,
+          "max_us": 137.05599308013916
+        },
+        "tlx_anchor": {
+          "n": 6.0,
+          "median_us": 57.66399949789047,
+          "mean_us": 56.08000047504902,
+          "min_us": 49.056001007556915,
+          "max_us": 61.76000088453293
+        },
+        "cublas_anchor": {
+          "n": 6.0,
+          "median_us": 31.120000407099724,
+          "mean_us": 30.522667181988556,
+          "min_us": 26.75200067460537,
+          "max_us": 32.00000151991844
+        }
+      },
+      "fastest_baseline_us": 68.14400106668472,
+      "initial_speedup_vs_fastest": 0.5018854727833979,
+      "speedup_vs_fastest": 0.5018854727833979,
+      "anchor_p50_us": 57.66399949789047,
+      "cublas_p50_us": 31.120000407099724,
+      "anchor_ratio": 1.8529562578262369,
+      "anchor_gate": false,
+      "fastest_baseline": "separate_norm_cublas"
+    }
+  ]
+}
