@@ -144,7 +144,8 @@ def rstd_kernel(X, R, K: tl.constexpr, EPS: tl.constexpr, BLOCK: tl.constexpr):
 def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
                         BM: tl.constexpr, BN: tl.constexpr, BK: tl.constexpr,
                         STAGES: tl.constexpr, BIAS=None,
-                        HAS_BIAS: tl.constexpr=False, APPLY_RMS: tl.constexpr=True):
+                        HAS_BIAS: tl.constexpr=False, APPLY_RMS: tl.constexpr=True,
+                        INLINE_RMS: tl.constexpr=False, EPS: tl.constexpr=1e-6):
     rm = tl.program_id(0) * BM + tl.arange(0, BM)
     rn = tl.program_id(1) * BN + tl.arange(0, BN)
     rk = tl.arange(0, BK)
@@ -161,9 +162,18 @@ def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.cons
         ap += BK
         bp += BK * N
     acc = tl.zeros((BM, BN), tl.float32)
+    ss = tl.zeros((BM,), tl.float32)
     for k in tl.range(0, tl.cdiv(K, BK), num_stages=1):
         tlx.async_load_wait_group(STAGES - 2)
         acc = tlx.async_dot(tlx.local_view(ab, k % STAGES), tlx.local_view(bb, k % STAGES), acc)
+        if INLINE_RMS:
+            # Independent FP32 reduction can run while WGMMA is outstanding.
+            # Every output CTA computes its row factors; no global scratch or
+            # inter-CTA synchronization is needed. This repeats work across N.
+            kk = k * BK + rk
+            values = tl.load(X + rm[:, None] * K + kk[None, :],
+                             (rm[:, None] < M) & (kk[None, :] < K), 0).to(tl.float32)
+            ss += tl.sum(values * values, axis=1)
         i = k + STAGES - 1
         acc = tlx.async_dot_wait(1, acc)
         ta = tlx.async_load(ap, tlx.local_view(ab, i % STAGES),
@@ -175,7 +185,10 @@ def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.cons
         bp += BK * N
     acc = tlx.async_dot_wait(0, acc)
     if APPLY_RMS:
-        r = tl.load(R + rm, rm < M, 0)
+        if INLINE_RMS:
+            r = tl.rsqrt(ss / K + EPS)
+        else:
+            r = tl.load(R + rm, rm < M, 0)
         acc = acc * r[:, None]
     if HAS_BIAS:
         bias = tl.load(BIAS + rn, rn < N, 0).to(tl.float32)
@@ -256,14 +269,16 @@ def rmsnorm_gemm(x, w, eps=1e-6, *, backend="tlx"):
     return out
 
 
-def lazy_rms_projection(x, folded_weight, bias, out, inverse, *, eps=1e-6,
+def lazy_rms_projection(x, folded_weight, bias, out, inverse=None, *, eps=1e-6,
                         bm=64, bn=128, bk=64, stages=3,
-                        warps=4, standalone=False):
+                        warps=4, standalone=False, inline_rms=False):
     """BF16 projection with gamma folded once into the supplied weight.
 
     Compute ``inverse_rms(x) * (x @ folded_weight) + bias`` with FP32
     accumulation and one final BF16 conversion. Only one FP32 scalar per
-    input row is materialized. ``standalone`` measures the identical GEMM
+    input row is materialized in the reduction-split variant. ``inline_rms``
+    computes the inverse RMS in the GEMM kernel with no scalar prepass or
+    scratch. ``standalone`` measures the identical GEMM
     schedule and bias epilogue with normalization disabled for the anchor
     gate. This changes the intermediate BF16 rounding of eager RMSNorm.
     """
@@ -273,24 +288,27 @@ def lazy_rms_projection(x, folded_weight, bias, out, inverse, *, eps=1e-6,
     n = folded_weight.shape[1]
     if folded_weight.shape[0] != k or out.shape != (m, n) or bias.shape != (n,):
         raise ValueError("Projection shapes are incompatible")
-    if inverse.shape != (m,) or inverse.dtype != torch.float32 or out.dtype != x.dtype:
-        raise ValueError("BF16 output and one FP32 inverse-RMS scalar per row required")
+    if out.dtype != x.dtype:
+        raise ValueError("BF16 output required")
+    if not standalone and not inline_rms and (inverse is None or inverse.shape != (m,) or inverse.dtype != torch.float32):
+        raise ValueError("Reduction-split projection requires one FP32 inverse-RMS scalar per row")
     if min(m, n, k) < 1 or eps <= 0 or stages < 2:
         raise ValueError("Positive dimensions/epsilon and at least two pipeline stages required")
     if any(t.requires_grad for t in (x, folded_weight, bias)):
         raise ValueError("This API is forward-only")
     if not all(t.is_cuda and t.device == x.device and t.is_contiguous()
-               for t in (x, folded_weight, bias, out, inverse)):
+               for t in (x, folded_weight, bias, out) + (() if inverse is None else (inverse,))):
         raise ValueError("Contiguous tensors on the same CUDA device required")
     if torch.cuda.get_device_capability(x.device)[0] != 9:
         raise ValueError("This TLX pipeline targets Hopper")
     if k % 2 or n % 2:
         raise ValueError("The TLX async-load pipeline requires even strides")
-    if not standalone:
+    if not standalone and not inline_rms:
         rstd_kernel[(m,)](x, inverse, k, eps, triton.next_power_of_2(k), num_warps=4)
     return rms_gemm_tlx_kernel[(triton.cdiv(m, bm), triton.cdiv(n, bn))](
         x, folded_weight, inverse, out, m, n, k, BM=bm, BN=bn, BK=bk,
         STAGES=stages, BIAS=bias, HAS_BIAS=True, APPLY_RMS=not standalone,
+        INLINE_RMS=inline_rms and not standalone, EPS=eps,
         num_warps=warps, num_stages=1)
 
 
