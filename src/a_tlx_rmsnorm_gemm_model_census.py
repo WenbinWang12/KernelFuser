@@ -91,9 +91,10 @@ def event_paired(functions, rounds, samples, replays, seed):
 
 
 def write_public(rec, path):
-    fields = ["device", "stack", "model", "site", "M", "K", "N", "seed", "status",
+    fields = ["device", "stack", "model", "site", "M", "K", "N", "dtype", "seed", "status",
               "publication_eligible", "reason", "correctness_pass", "max_relative_l2",
               "anchor_ratio", "noise_margin", "speedup_vs_fastest", "retest_speedup",
+              "diagnostic_speedup_vs_fastest", "diagnostic_retest_speedup", "candidate_kernel_count",
               "fastest_baseline", "compiler_status", "exclusivity_pass", "source_commit",
               "source_sha256", "config_manifest_sha256", "trace_sha256"]
     fields += [f"{arm}_{stat}_ms" for arm in ARMS for stat in ["p50", "p95"]]
@@ -104,7 +105,13 @@ def write_public(rec, path):
         for row in rec["rows"]:
             public = {key: row.get(key) for key in fields}
             public.update(device="H100", stack=rec.get("stack"), source_commit=rec["source_commit"],
-                          source_sha256=rec["source_sha256"], config_manifest_sha256=rec["config_manifest_sha256"])
+                          dtype="bfloat16", source_sha256=rec["source_sha256"], config_manifest_sha256=rec["config_manifest_sha256"])
+            public["diagnostic_speedup_vs_fastest"] = row.get("speedup_vs_fastest")
+            public["diagnostic_retest_speedup"] = row.get("retest_speedup")
+            public["candidate_kernel_count"] = row.get("traces", {}).get("candidate", {}).get("kernel_count")
+            if row["status"] != "tested_pass":
+                public["speedup_vs_fastest"] = None
+                public["retest_speedup"] = None
             public["reason"] = ";".join(row.get("gate_reasons", []))
             public["trace_sha256"] = json.dumps({k:v["sha256"] for k,v in row.get("traces", {}).items()}, sort_keys=True)
             for arm, result in row.get("arm_statistics", {}).items():
