@@ -155,10 +155,14 @@ No B speedup, row count, or expected win rate is currently available.
 
 ## C -- public jagged/recommendation fusion (priority 3)
 
-No C runner is present.  The checked-in FuxiCTR DLRM/DCNv2 sources are model
-reference code, not a fused kernel benchmark.  The `external/tlx_jfa` source
-targets Blackwell and cannot be used as an H100/H200 result.  Do not reuse
-private GEM production receipts for this open-model experiment.
+A public candidate implementation is now checked in at
+`src/c_dlrm_concat_ln.py` (source commit `34c5807`).  It implements the
+pre-registered flat `values`/`offsets` lane and includes an independent FP32
+reference, but it is not a benchmark runner.  The checked-in FuxiCTR
+DLRM/DCNv2 sources are model reference code, not a fused kernel benchmark.
+The `external/tlx_jfa` source targets Blackwell and cannot be used as an
+H100/H200 result.  Do not reuse private GEM production receipts for this
+open-model experiment.
 
 Use one public workload and freeze it before implementing the candidate.  The
 recommended first lane is TorchRec DLRM-style jagged feature interaction:
@@ -200,8 +204,14 @@ python src/c_jagged_recsys.py --lane dlrm_concat_ln \
   --trace-dir outputs/c-dlrm-traces
 ```
 
-Until that source, histogram, and receipt schema exist, C is `blocked_on_implementation`
-and no C number may be written in the paper.
+The CPU/import smokes on both OSU release stacks report
+`blocked_dependency` because TorchRec's jagged tensor module and FBGEMM are
+not installed.  The untimed H200 physical-GPU-4 correctness smoke passes
+against the FP32 reference; it is recorded in
+`results/abc/c_correctness_h200_gpu4.json` and contains no timing number.
+Until a public dependency lock, checked-in length histogram, and benchmark
+runner are available, C remains `blocked_dependency` and no C number may be
+written in the paper.
 
 ## Public output contract
 
@@ -235,8 +245,10 @@ audited.
    compiler-already-fused rows in the appendix or diagnostic archive.
 
 Current status at handoff: A has the model-shaped runner and requires the
-one-shape TLX smoke before its census; B and C require new implementations.
-There are no promoted A/B/C performance results in this repository.
+one-shape TLX smoke before its census; B requires a new implementation; C has
+the candidate and untimed correctness/import smokes but remains dependency-
+blocked and has no benchmark runner.  There are no promoted A/B/C performance
+results in this repository.
 
 ## Exact manifests and row accounting
 
