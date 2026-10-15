@@ -39,3 +39,16 @@ vendor-anchor gate.  No A number from these files belongs in `Experiment.tex`.
   candidate source was added.  The implementation and fixed manifest are
   syntax/manifest-valid on both stacks, but TorchRec and FBGEMM are absent;
   both receipts remain `blocked_dependency` with no timing claim.
+
+* `b_smoke_h200_gpu5_final4.json` is the first executable B smoke on allowed
+  H200 card 5.  Q/K/V, attention, synthetic logits, top-1 and NLL checks pass,
+  but the fused custom projection is 41.16x slower than `torch.mm` (0.01997 ms
+  vendor versus 0.82182 ms custom).  It is therefore `tested_invalid` and not
+  a paper result.  The smoke intentionally skips Inductor; a full B row must
+  run the compiler audit before promotion.
+* `e2_smoke_h200_gpu5_contig.json` is a sanitized Qwen3-8B prefill diagnostic
+  after the harness fixes (frozen inference weights, contiguous Q/K/V, shared
+  batched-RoPE validation, single-thread Inductor).  At B=1/S=128 the compiled
+  baseline and the candidate both fail the strict full-logit/top-1 gate; no
+  timing was recorded.  The maximum candidate-versus-vendor relative L2 is
+  0.01251 and top-1 agreement is 0.96875.  It is not publication-eligible.

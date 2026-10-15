@@ -1,0 +1,366 @@
+{
+  "schema": "kernelfuser-abc-b-qkv-output-v1",
+  "track": "B",
+  "status": "tested_invalid",
+  "publication_eligible": false,
+  "source_commit": "working-tree",
+  "claim_boundary": "Qwen3-8B shape-only QKV operator smoke; no checkpoint/full-model/training claim",
+  "source_sha256": "83532e8b7b30da8d06f264924164358142108a12f16c30322985a0c86d775331",
+  "config_manifest_sha256": "fba9463885c36d53f9285d263d5b9868d671ca397c37ea35e77dd207226d8a34",
+  "config_json": {
+    "path": "/local/scratch/wang.21020/abc_vendor_anchor_20261015/b_stage/qwen3_8b_config.json",
+    "sha256": "fba9463885c36d53f9285d263d5b9868d671ca397c37ea35e77dd207226d8a34"
+  },
+  "environment": {
+    "host": "ece-drf95318s.coeit.osu.edu",
+    "gpu": "NVIDIA H200 NVL",
+    "torch": "2.8.0+cu126",
+    "cuda": "12.6",
+    "triton": "3.7.4+fb",
+    "visible_gpu": "5"
+  },
+  "geometry": {
+    "name": "Qwen3-8B",
+    "hidden": 4096,
+    "q_heads": 32,
+    "kv_heads": 8,
+    "head_dim": 128,
+    "rms_norm_eps": 1e-06,
+    "rope_theta": 1000000.0
+  },
+  "protocol": {
+    "dtype": "bfloat16",
+    "B": [
+      1
+    ],
+    "S": [
+      128
+    ],
+    "causal_modes": [
+      false
+    ],
+    "warmup": 20,
+    "rounds": 1,
+    "samples": 3,
+    "timing": "paired randomized CUDA-graph replay; vendor SDPA for both arms",
+    "anchor_gate": "standalone custom QKV projection <= 1% over vendor torch.mm",
+    "correctness": "Q,K,V,attention,synthetic logits/top-1/NLL vs eager FP32 oracle",
+    "rope": "split-half; theta=1e6; Qwen3 RMSNorm eps=1e-6"
+  },
+  "rows": [
+    {
+      "B": 1,
+      "S": 128,
+      "causal": false,
+      "errors": [],
+      "traces": [],
+      "gpu_exclusivity": {
+        "before": {
+          "utc": "2026-10-15T17:35:15Z",
+          "visible_gpu": "5",
+          "logical_devices": [
+            5
+          ],
+          "selected_uuids": [
+            "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc"
+          ],
+          "pid": 520069,
+          "apps": [
+            {
+              "gpu_uuid": "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc",
+              "pid": 519463,
+              "process_name": "/local/scratch/WUrbane/opd_aaai_envs/qwen35-cu126-py312-r16/bin/python3.12",
+              "used_memory": "18706",
+              "self": false
+            }
+          ],
+          "foreign_apps": [
+            {
+              "gpu_uuid": "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc",
+              "pid": 519463,
+              "process_name": "/local/scratch/WUrbane/opd_aaai_envs/qwen35-cu126-py312-r16/bin/python3.12",
+              "used_memory": "18706",
+              "self": false
+            }
+          ],
+          "exclusive": false
+        },
+        "observations": [
+          {
+            "utc": "2026-10-15T17:35:17Z",
+            "visible_gpu": "5",
+            "logical_devices": [
+              5
+            ],
+            "selected_uuids": [
+              "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc"
+            ],
+            "pid": 520069,
+            "apps": [
+              {
+                "gpu_uuid": "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc",
+                "pid": 519463,
+                "process_name": "/local/scratch/WUrbane/opd_aaai_envs/qwen35-cu126-py312-r16/bin/python3.12",
+                "used_memory": "18706",
+                "self": false
+              },
+              {
+                "gpu_uuid": "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc",
+                "pid": 520069,
+                "process_name": "/local/scratch/WUrbane/tlx_probe/tlx_env/bin/python3.12",
+                "used_memory": "968",
+                "self": true
+              }
+            ],
+            "foreign_apps": [
+              {
+                "gpu_uuid": "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc",
+                "pid": 519463,
+                "process_name": "/local/scratch/WUrbane/opd_aaai_envs/qwen35-cu126-py312-r16/bin/python3.12",
+                "used_memory": "18706",
+                "self": false
+              }
+            ],
+            "exclusive": false
+          }
+        ],
+        "after": {
+          "utc": "2026-10-15T17:35:20Z",
+          "visible_gpu": "5",
+          "logical_devices": [
+            5
+          ],
+          "selected_uuids": [
+            "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc"
+          ],
+          "pid": 520069,
+          "apps": [
+            {
+              "gpu_uuid": "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc",
+              "pid": 519463,
+              "process_name": "/local/scratch/WUrbane/opd_aaai_envs/qwen35-cu126-py312-r16/bin/python3.12",
+              "used_memory": "18708",
+              "self": false
+            },
+            {
+              "gpu_uuid": "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc",
+              "pid": 520069,
+              "process_name": "/local/scratch/WUrbane/tlx_probe/tlx_env/bin/python3.12",
+              "used_memory": "1060",
+              "self": true
+            }
+          ],
+          "foreign_apps": [
+            {
+              "gpu_uuid": "GPU-52744168-96d2-eb67-411d-bc83f2c9aafc",
+              "pid": 519463,
+              "process_name": "/local/scratch/WUrbane/opd_aaai_envs/qwen35-cu126-py312-r16/bin/python3.12",
+              "used_memory": "18708",
+              "self": false
+            }
+          ],
+          "exclusive": false
+        }
+      },
+      "correctness": {
+        "seeds": [
+          {
+            "seed": 1701,
+            "candidate": {
+              "Q": {
+                "finite": true,
+                "max_abs": 0.03881645202636719,
+                "relative_l2": 0.003254041075706482,
+                "pass": true
+              },
+              "K": {
+                "finite": true,
+                "max_abs": 0.032459259033203125,
+                "relative_l2": 0.0032371145207434893,
+                "pass": true
+              },
+              "V": {
+                "finite": true,
+                "max_abs": 0.014851570129394531,
+                "relative_l2": 0.0016643261769786477,
+                "pass": true
+              },
+              "attention": {
+                "finite": true,
+                "max_abs": 0.008433252573013306,
+                "relative_l2": 0.005230541806668043,
+                "pass": true
+              },
+              "logits": {
+                "finite": true,
+                "max_abs": 0.00827789306640625,
+                "relative_l2": 2.078460056509357e-05,
+                "pass": true
+              },
+              "top1_match": true,
+              "nll": {
+                "value": 49.41054153442383,
+                "reference": 49.41059875488281,
+                "abs_diff": 5.7220458984375e-05,
+                "pass": true
+              }
+            },
+            "vendor": {
+              "Q": {
+                "finite": true,
+                "max_abs": 0.03881645202636719,
+                "relative_l2": 0.003407496027648449,
+                "pass": true
+              },
+              "K": {
+                "finite": true,
+                "max_abs": 0.032459259033203125,
+                "relative_l2": 0.0033930251374840736,
+                "pass": true
+              },
+              "V": {
+                "finite": true,
+                "max_abs": 0.014851570129394531,
+                "relative_l2": 0.0016643261769786477,
+                "pass": true
+              },
+              "attention": {
+                "finite": true,
+                "max_abs": 0.0068550705909729,
+                "relative_l2": 0.005419113673269749,
+                "pass": true
+              },
+              "logits": {
+                "finite": true,
+                "max_abs": 0.00579833984375,
+                "relative_l2": 2.1409112378023565e-05,
+                "pass": true
+              },
+              "top1_match": true,
+              "nll": {
+                "value": 49.41047668457031,
+                "reference": 49.41059875488281,
+                "abs_diff": 0.0001220703125,
+                "pass": true
+              }
+            },
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      "anchor_timing": {
+        "a": [
+          [
+            0.019967999309301376,
+            0.020160000771284103,
+            0.01897599920630455
+          ]
+        ],
+        "b": [
+          [
+            0.8249920010566711,
+            0.8150720000267029,
+            0.8218240141868591
+          ]
+        ],
+        "arm_order": [
+          [
+            "a_first",
+            "b_first",
+            "a_first"
+          ]
+        ],
+        "mode": "cuda_graph_replay_paired_interleaved",
+        "paired": true,
+        "warmups_per_capture": 20,
+        "fresh_graph_captures": 1,
+        "samples_per_round": 3,
+        "seed": 4401,
+        "a_p50_ms": [
+          0.019967999309301376
+        ],
+        "b_p50_ms": [
+          0.8218240141868591
+        ],
+        "ratio_median": 0.024297171857479
+      },
+      "anchor_gate": {
+        "vendor_p50_ms": 0.019967999309301376,
+        "custom_p50_ms": 0.8218240141868591,
+        "custom_over_vendor": 41.15705341616483,
+        "pass": false
+      },
+      "anchor_correctness": {
+        "custom_raw_vs_fp32": {
+          "finite": true,
+          "max_abs": 0.015270233154296875,
+          "relative_l2": 0.0016621829709038138,
+          "pass": true
+        },
+        "vendor_raw_vs_fp32": {
+          "finite": true,
+          "max_abs": 0.015270233154296875,
+          "relative_l2": 0.0016621829709038138,
+          "pass": true
+        }
+      },
+      "compiler_evidence": {
+        "status": "smoke_skipped"
+      },
+      "compiler_already_fused": null,
+      "compile_correctness": {
+        "pass": false
+      },
+      "timing": {
+        "vendor_sdpa_vs_candidate": {
+          "a": [
+            [
+              0.10982400178909302,
+              0.10675200074911118,
+              0.10662399977445602
+            ]
+          ],
+          "b": [
+            [
+              0.8250880241394043,
+              0.8327040076255798,
+              0.8223040103912354
+            ]
+          ],
+          "arm_order": [
+            [
+              "a_first",
+              "b_first",
+              "b_first"
+            ]
+          ],
+          "mode": "cuda_graph_replay_paired_interleaved",
+          "paired": true,
+          "warmups_per_capture": 20,
+          "fresh_graph_captures": 1,
+          "samples_per_round": 3,
+          "seed": 5501,
+          "a_p50_ms": [
+            0.10675200074911118
+          ],
+          "b_p50_ms": [
+            0.8250880241394043
+          ],
+          "ratio_median": 0.12938255995226358
+        }
+      },
+      "publication_gate": {
+        "pass": false,
+        "reasons": [
+          "custom_qkv_gemm_over_1pct_vendor",
+          "torch_compile_unavailable",
+          "torch_compile_correctness_failed",
+          "compiler_fusion_status_unknown_boundary_diagnostic",
+          "gpu_exclusivity_failed"
+        ]
+      },
+      "status": "tested_invalid"
+    }
+  ]
+}

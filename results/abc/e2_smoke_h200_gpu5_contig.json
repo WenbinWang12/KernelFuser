@@ -1,0 +1,64 @@
+{
+    "schema":  "fusionagent-e2-qwen3-rope-prefill-v1",
+    "model_name":  "Qwen3-8B",
+    "model_path":  "\u003cprivate checkpoint path omitted\u003e",
+    "scope":  "Qwen3-8B causal prefill; native projections/output projection; Q/K RMSNorm+RoPE+attention fused",
+    "source_hash":  "17bc4af132724f48ffee1e84adeecd1a7417a3166844861bd76f78de55293f54",
+    "isolated_kernel_source":  "e1_rope_refined_impl.py:optimized_attention(mode=query)",
+    "protocol":  {
+                     "S":  [
+                               128
+                           ],
+                     "B":  [
+                               1
+                           ],
+                     "causal":  true,
+                     "warmup":  2,
+                     "repeats":  2,
+                     "rounds":  1,
+                     "baseline":  "unmodified Qwen3 attention with vendor SDPA",
+                     "compiled_baseline":  "torch.compile(fullgraph=True,dynamic=False,mode=default)",
+                     "candidate":  "K-once RoPE-aware Triton optimized_attention(mode=query)",
+                     "timing":  "randomized paired CUDA-graph replay; no timing before correctness",
+                     "correctness":  "full logits max_abs/relative_l2, top1, and next-token NLL",
+                     "dispatch":  "candidate is selected by exact (B,S) shape; failed rows do not dispatch"
+                 },
+    "environment":  {
+                        "torch":  "2.8.0+cu126",
+                        "cuda":  "12.6",
+                        "torchinductor_compile_threads":  "1"
+                    },
+    "rows":  [
+                 {
+                     "B":  1,
+                     "S":  128,
+                     "causal":  true,
+                     "seed":  9336,
+                     "status":  "fail_candidate_correctness",
+                     "compiled_baseline_check":  {
+                                                     "max_abs":  0.375,
+                                                     "relative_l2":  0.013430199585855007,
+                                                     "pass":  false,
+                                                     "top1_agreement":  0.984375,
+                                                     "nll_reference":  13.633892059326172,
+                                                     "nll_candidate":  13.63426685333252,
+                                                     "nll_abs_diff":  0.00037479400634765625
+                                                 },
+                     "correctness":  {
+                                         "candidate_vs_vendor":  {
+                                                                     "max_abs":  0.40625,
+                                                                     "relative_l2":  0.012512610293924809,
+                                                                     "pass":  false,
+                                                                     "top1_agreement":  0.96875,
+                                                                     "nll_reference":  13.633892059326172,
+                                                                     "nll_candidate":  13.63440227508545,
+                                                                     "nll_abs_diff":  0.0005102157592773438
+                                                                 }
+                                     }
+                 }
+             ],
+    "status":  "tested_with_errors",
+    "publication_eligible":  false,
+    "sanitized_for_public":  true,
+    "sanitization_note":  "Removed checkpoint paths, hostnames, GPU identifiers, process IDs and compute-app details; correctness status and software versions retained."
+}
