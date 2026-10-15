@@ -115,8 +115,8 @@ The ABC dependency smoke was run on H200 cards 5, 6, and 7. The A receipt is
 `blocked_dependency` because the formal H200 Triton stack lacks the TLX
 namespace; B is `ready_for_implementation` after the public Qwen3-8B shape
 check; C is `blocked_dependency` because TorchRec/FBGEMM and the C kernel are
-not installed. The corresponding H100 smoke scripts are queued on physical
-cards 0, 1, and 2 and wait for exclusivity. Do not launch the 126-row A census
-until its TLX smoke passes, and do not write any ABC number into
+not installed. The H100 B/C smokes completed on physical cards 1 and 2; the
+H100 A TLX smoke remains queued on physical card 0 and waits for exclusivity.
+Do not launch the 126-row A census until its TLX smoke passes, and do not write any ABC number into
 `Experiment.tex` before the receipt promotion gates in
 `ABC_VENDOR_ANCHOR_PLAN.md` pass.
