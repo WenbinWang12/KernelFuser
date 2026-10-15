@@ -1,0 +1,10 @@
+{
+  "model_id": "Qwen/Qwen3-8B",
+  "source": "public Hugging Face config.json; shape-only smoke manifest",
+  "hidden_size": 4096,
+  "num_attention_heads": 32,
+  "num_key_value_heads": 8,
+  "head_dim": 128,
+  "rms_norm_eps": 1e-6,
+  "rope_theta": 1000000.0
+}

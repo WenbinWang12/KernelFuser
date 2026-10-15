@@ -1,0 +1,10 @@
+{
+  "lane": "dlrm_concat_ln",
+  "source": "pre-registered public shape-only manifest",
+  "feature_count": [16, 32],
+  "embedding_dim": [64, 128],
+  "per_feature_length": [1, 4, 16, 64],
+  "batch": [1, 8, 32, 128],
+  "seed": 20261015,
+  "padding_hidden_from_timing": true
+}
