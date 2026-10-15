@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Publication E7 A/A noise-floor runner with provenance and independent retest."""
 from __future__ import annotations
-import argparse,gzip,hashlib,json,os,random,statistics,subprocess,threading,time,platform
+import argparse,gzip,hashlib,json,os,random,statistics,subprocess,threading,time,platform,sys
 from pathlib import Path
 import torch
 import e1_qk_publication_v3 as e1
@@ -32,17 +32,43 @@ def timed(g1,g2,seed):
         else: order.append("A2_first"); b.append(m(g2)); a.append(m(g1))
     return stat(a),stat(b),order
 def trace(g,path,label):
-    path.parent.mkdir(parents=True,exist_ok=True)
-    with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,torch.profiler.ProfilerActivity.CUDA]) as p:
-        with torch.profiler.record_function(label): g.replay()
-        torch.cuda.synchronize()
-    raw=Path(str(path)[:-3]); p.export_chrome_trace(str(raw))
-    with raw.open('rb') as f,gzip.open(path,'wb') as z: z.write(f.read())
-    raw.unlink(missing_ok=True)
+    from fusion_harness import capture_gpu_trace
+    return capture_gpu_trace(g.replay,path,label)
 def main():
-    ap=argparse.ArgumentParser(); ap.add_argument('--out',required=True); ap.add_argument('--trace-dir',required=True); a=ap.parse_args(); out=Path(a.out); td=Path(a.trace_dir); out.parent.mkdir(parents=True,exist_ok=True)
+    ap=argparse.ArgumentParser(); ap.add_argument('--out',required=True); ap.add_argument('--trace-dir',required=True)
+    ap.add_argument('--row-index',type=int,choices=range(len(ROWS)),help='Run one pre-registered A/A control')
+    ap.add_argument('--fresh-processes',action='store_true',help='Use a fresh Python/CUDA process per control')
+    a=ap.parse_args(); out=Path(a.out); td=Path(a.trace_dir); out.parent.mkdir(parents=True,exist_ok=True)
+    if a.fresh_processes:
+        visible=os.environ.get('CUDA_VISIBLE_DEVICES','')
+        if not visible.isdigit() or a.row_index is not None:
+            ap.error('--fresh-processes requires one physical GPU index and the full control matrix')
+        inventory=subprocess.check_output(['nvidia-smi','--query-gpu=index,uuid','--format=csv,noheader,nounits'],text=True)
+        uuid=next(line.split(',')[1].strip() for line in inventory.splitlines() if line.split(',')[0].strip()==visible)
+        directory=out.parent/(out.stem+'_cases'); directory.mkdir(parents=True,exist_ok=True)
+        aggregate=None
+        for index in range(len(ROWS)):
+            while uuid in subprocess.check_output(['nvidia-smi','--query-compute-apps=gpu_uuid','--format=csv,noheader,nounits'],text=True).splitlines():
+                time.sleep(5)
+            child=directory/f'row_{index}.json'
+            with (directory/f'row_{index}.log').open('w') as log:
+                result=subprocess.run([sys.executable,str(Path(__file__).resolve()),'--row-index',str(index),
+                                       '--out',str(child),'--trace-dir',str(td/f'row_{index}')],stdout=log,stderr=subprocess.STDOUT)
+            data=json.loads(child.read_text())
+            if aggregate is None:
+                aggregate={k:v for k,v in data.items() if k!='rows'}; aggregate['rows']=[]
+            assert data['source_sha256']==aggregate['source_sha256']
+            aggregate['rows'].extend(data['rows'])
+            aggregate['status']='tested_pass' if all(r['status']=='tested_pass' for r in aggregate['rows']) else 'tested_invalid'
+            aggregate['publication_eligible']=False
+            aggregate['collection_mode']='fresh_python_cuda_process_per_control'
+            out.write_text(json.dumps(aggregate,indent=2)+'\n')
+            print('control',index,'returncode',result.returncode,data['status'],flush=True)
+        return
     rec={"schema":"fusionagent-e7-aa-v2","status":"running","publication_eligible":False,"created_utc":time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),"source_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),"environment":{"host":platform.node(),"python":platform.python_version(),"torch":torch.__version__,"cuda":torch.version.cuda,"gpu":torch.cuda.get_device_name(0),"visible_gpu":os.getenv('CUDA_VISIBLE_DEVICES'),"device_count":torch.cuda.device_count(),"device_uuid_inventory":subprocess.check_output(['nvidia-smi','--query-gpu=index,uuid,name','--format=csv,noheader'],text=True).splitlines()},"protocol":{"warmup":WARM,"samples":SAMPLES,"rounds":ROUNDS,"cuda_graph":True,"randomized_arm_order":True,"independent_retest":True,"retest_seed":1000003,"same_baseline_graph":True},"rows":[]}
-    for name,s,causal in ROWS:
+    rec['support_source_sha256']=hashlib.sha256(Path(e1.__file__).read_bytes()).hexdigest()
+    rec['trace_helper_sha256']=hashlib.sha256(Path(__file__).with_name('fusion_harness.py').read_bytes()).hexdigest()
+    for name,s,causal in (ROWS if a.row_index is None else [ROWS[a.row_index]]):
         e1.CAUSAL_MODE=causal; cfg=e1.MODELS[name]; mon=e1.ExclusiveMonitor(); before=e1.gpu_exclusivity_snapshot(); mon.start()
         try:
             if not before.get('exclusive'): raise RuntimeError(f'non-exclusive before: {before}')

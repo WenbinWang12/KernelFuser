@@ -168,10 +168,23 @@ def scale_gemm_rows_kernel(X, R, Y, M: tl.constexpr, N: tl.constexpr,
 @triton.jit
 def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
                         BM: tl.constexpr, BN: tl.constexpr, BK: tl.constexpr,
-                        STAGES: tl.constexpr):
+                        STAGES: tl.constexpr, BIAS=None,
+                        HAS_BIAS: tl.constexpr=False, APPLY_RMS: tl.constexpr=True,
+                        INLINE_RMS: tl.constexpr=False, EPS: tl.constexpr=1e-6):
     rm = tl.program_id(0) * BM + tl.arange(0, BM)
     rn = tl.program_id(1) * BN + tl.arange(0, BN)
     rk = tl.arange(0, BK)
+    if INLINE_RMS:
+        # Finish the scalar reduction before the GEMM pipeline to keep its
+        # vector loads/reductions out of the WGMMA steady-state schedule.
+        # Work still repeats across output-column CTAs, without global scratch.
+        ss = tl.zeros((BM,), tl.float32)
+        for k in tl.range(0, tl.cdiv(K, BK), num_stages=1):
+            kk = k * BK + rk
+            values = tl.load(X + rm[:, None] * K + kk[None, :],
+                             (rm[:, None] < M) & (kk[None, :] < K), 0).to(tl.float32)
+            ss += tl.sum(values * values, axis=1)
+        inverse = tl.rsqrt(ss / K + EPS)
     ap = X + rm[:, None] * K + rk[None, :]
     bp = W + rk[:, None] * N + rn[None, :]
     ab = tlx.local_alloc((BM, BK), tlx.dtype_of(X), STAGES)
@@ -198,8 +211,16 @@ def rms_gemm_tlx_kernel(X, W, R, O, M: tl.constexpr, N: tl.constexpr, K: tl.cons
         ap += BK
         bp += BK * N
     acc = tlx.async_dot_wait(0, acc)
-    r = tl.load(R + rm, rm < M, 0)
-    tl.store(O + rm[:, None] * N + rn[None, :], (acc * r[:, None]).to(O.dtype.element_ty),
+    if APPLY_RMS:
+        if INLINE_RMS:
+            r = inverse
+        else:
+            r = tl.load(R + rm, rm < M, 0)
+        acc = acc * r[:, None]
+    if HAS_BIAS:
+        bias = tl.load(BIAS + rn, rn < N, 0).to(tl.float32)
+        acc = acc + bias[None, :]
+    tl.store(O + rm[:, None] * N + rn[None, :], acc.to(O.dtype.element_ty),
              (rm[:, None] < M) & (rn[None, :] < N))
 
 
@@ -273,6 +294,49 @@ def rmsnorm_gemm(x, w, eps=1e-6, *, backend="tlx"):
             fn = launch_rms_gemm_tlx if backend == "tlx" else launch_rms_gemm_prepass
             fn(x, w, out, rstd, eps=eps)
     return out
+
+
+def lazy_rms_projection(x, folded_weight, bias, out, inverse=None, *, eps=1e-6,
+                        bm=64, bn=128, bk=64, stages=3,
+                        warps=4, standalone=False, inline_rms=False):
+    """BF16 projection with gamma folded once into the supplied weight.
+
+    Compute ``inverse_rms(x) * (x @ folded_weight) + bias`` with FP32
+    accumulation and one final BF16 conversion. Only one FP32 scalar per
+    input row is materialized in the reduction-split variant. ``inline_rms``
+    computes the inverse RMS in the GEMM kernel with no scalar prepass or
+    scratch. ``standalone`` measures the identical GEMM
+    schedule and bias epilogue with normalization disabled for the anchor
+    gate. This changes the intermediate BF16 rounding of eager RMSNorm.
+    """
+    if x.dtype != torch.bfloat16 or folded_weight.dtype != torch.bfloat16:
+        raise ValueError("BF16 projection inputs required")
+    m, k = x.shape
+    n = folded_weight.shape[1]
+    if folded_weight.shape[0] != k or out.shape != (m, n) or bias.shape != (n,):
+        raise ValueError("Projection shapes are incompatible")
+    if out.dtype != x.dtype:
+        raise ValueError("BF16 output required")
+    if not standalone and not inline_rms and (inverse is None or inverse.shape != (m,) or inverse.dtype != torch.float32):
+        raise ValueError("Reduction-split projection requires one FP32 inverse-RMS scalar per row")
+    if min(m, n, k) < 1 or eps <= 0 or stages < 2:
+        raise ValueError("Positive dimensions/epsilon and at least two pipeline stages required")
+    if any(t.requires_grad for t in (x, folded_weight, bias)):
+        raise ValueError("This API is forward-only")
+    if not all(t.is_cuda and t.device == x.device and t.is_contiguous()
+               for t in (x, folded_weight, bias, out) + (() if inverse is None else (inverse,))):
+        raise ValueError("Contiguous tensors on the same CUDA device required")
+    if torch.cuda.get_device_capability(x.device)[0] != 9:
+        raise ValueError("This TLX pipeline targets Hopper")
+    if k % 2 or n % 2:
+        raise ValueError("The TLX async-load pipeline requires even strides")
+    if not standalone and not inline_rms:
+        rstd_kernel[(m,)](x, inverse, k, eps, triton.next_power_of_2(k), num_warps=4)
+    return rms_gemm_tlx_kernel[(triton.cdiv(m, bm), triton.cdiv(n, bn))](
+        x, folded_weight, inverse, out, m, n, k, BM=bm, BN=bn, BK=bk,
+        STAGES=stages, BIAS=bias, HAS_BIAS=True, APPLY_RMS=not standalone,
+        INLINE_RMS=inline_rms and not standalone, EPS=eps,
+        num_warps=warps, num_stages=1)
 
 
 if __name__ == '__main__': main()
