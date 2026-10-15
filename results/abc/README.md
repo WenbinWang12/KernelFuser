@@ -13,12 +13,14 @@ They were collected on the allowed H200 physical cards 5, 6, and 7 from the
   a B performance result. The B kernel still has to be implemented and pass
   the standalone cuBLAS anchor gate.
 * `c_smoke_h200_gpu7.json` is `blocked_dependency`: the fixed jagged manifest
-  is present, while TorchRec/FBGEMM and the C implementation are absent. No C
+  and candidate source are present, while TorchRec/FBGEMM are absent. No C
   timing row was emitted.
 
-The H100 B and C counterparts completed on physical cards 1 and 2 and are
-included beside the H200 receipts. The H100 A TLX smoke remains queued on
-physical card 0 because that card is busy. H200 cards 0--3 were not used.
+The H100 B and C dependency smokes completed on physical cards 1 and 2 and are
+included beside the H200 receipts. The formal release-stack H100 A smoke
+remains queued on physical card 0 because that card is busy; the alternate
+fbtriton diagnostic ran on card 1 and is recorded above. H200 cards 0--3 were
+not used.
 See [`experiments/ABC_VENDOR_ANCHOR_PLAN.md`](../../experiments/ABC_VENDOR_ANCHOR_PLAN.md)
 for the full pre-registered scope and promotion rules.
 
