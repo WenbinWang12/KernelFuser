@@ -2,7 +2,7 @@
 """Auditable model-shaped RMSNorm -> GEMM campaign (experiment A).
 
 This runner deliberately fails closed.  The candidate is the TLX-backed
-``launch(kind, x, w, out)`` implementation from ``tlx_ads_sm90_port``; if CUDA,
+``module.launch('tlx', x, w, out)`` implementation from ``tlx_ads_sm90_port``; if CUDA,
 the TLX namespace, or an SM90 candidate compile is unavailable, the receipt is
 ``blocked_dependency`` and no Triton fallback is silently promoted.  The
 default campaign uses public model geometries and random BF16 tensors.  It
@@ -137,7 +137,8 @@ def _load_candidate() -> tuple[Any | None, dict[str, Any] | None, str | None]:
         return None, None, "candidate_source_path_unavailable"
     return module, {
         "candidate_source_sha256": _sha256_file(source),
-        "candidate_implementation": "tlx_ads_sm90_port.launch(kind='tlx', x, w, out)",
+        "candidate_implementation": "tlx_ads_sm90_port.ads_sm90_rmsnorm_matmul.launch",
+        "candidate_invocation": "module.launch('tlx', x, w_tlx, out)",
         "candidate_scope": "SM90 ADS-derived TLX port; forward-only; not upstream SM100 TLX",
     }, None
 
@@ -167,6 +168,8 @@ def _make_case(module: Any, model: str, site: str, m: int, seed: int) -> dict[st
     rstd = torch.empty((m,), device="cuda", dtype=torch.float32)
     raw = torch.empty((m, n), device="cuda", dtype=torch.float32)
     out = torch.empty((m, n), device="cuda", dtype=DTYPE)
+    anchor_out = torch.empty((m, n), device="cuda", dtype=DTYPE)
+    anchor_scale = torch.ones((m,), device="cuda", dtype=torch.float32)
 
     def separate_norm_cublas() -> torch.Tensor:
         y = F.rms_norm(x, (k,), weight=gamma, eps=EPS)
@@ -187,20 +190,35 @@ def _make_case(module: Any, model: str, site: str, m: int, seed: int) -> dict[st
     def torch_compile_max_autotune() -> torch.Tensor:
         return compiled(x, w.t(), gamma)
 
-    def unfused_vendor_anchor() -> torch.Tensor:
-        """Standalone vendor GEMM used for the anchor gate."""
-        return torch.matmul(x, w_fold.t())
-
-    def cublas_reference() -> torch.Tensor:
-        """Explicit cuBLAS reference API for the standalone anchor check."""
-        return torch.mm(x, w_fold.t())
-
     def tlx_fused() -> torch.Tensor:
-        # The checked-in SM90 port exposes ``launch(kind, x, w, out)`` and
+        # The checked-in SM90 port exposes ``module.launch(kind, x, w, out)`` and
         # performs the RMS reduction inside the TLX kernel.  ``w_tlx`` already
         # contains the folded gamma, so this is the lazy-norm contract.
         module.launch("tlx", x, w_tlx, out)
         return out
+
+    # The anchor check isolates the GEMM implementation from the RMSNorm
+    # reduction.  It is deliberately excluded from correctness: correctness
+    # is checked only for the full RMSNorm -> GEMM outputs below.
+    triton = importlib.import_module("triton")
+
+    def tlx_anchor() -> torch.Tensor:
+        """Standalone TLX GEMM tile path with an all-ones row scale."""
+        return module.rms_gemm_tlx_kernel[
+            (triton.cdiv(m, 64), triton.cdiv(n, 64))
+        ](
+            x, w_tlx, anchor_scale, anchor_out, m, n, k,
+            BM=64, BN=64, BK=64, STAGES=3,
+            num_warps=4, num_stages=1,
+        )
+
+    def cublas_anchor() -> torch.Tensor:
+        """Standalone vendor GEMM reference used for the anchor gate."""
+        try:
+            torch.mm(x, w_fold.t(), out=anchor_out)
+        except (TypeError, RuntimeError):
+            anchor_out.copy_(torch.matmul(x.float(), w_fold.t().float()).to(DTYPE))
+        return anchor_out
 
     try:
         compiled = torch.compile(
@@ -223,8 +241,8 @@ def _make_case(module: Any, model: str, site: str, m: int, seed: int) -> dict[st
         "tlx_fused": tlx_fused,
     }
     anchor_arms: dict[str, Callable[[], torch.Tensor]] = {
-        "unfused_vendor_anchor": unfused_vendor_anchor,
-        "cublas_reference": cublas_reference,
+        "tlx_anchor": tlx_anchor,
+        "cublas_anchor": cublas_anchor,
     }
     # Compile the candidate before any correctness or timing arm.  A smoke
     # run therefore distinguishes a missing/unsupported TLX backend from an
@@ -234,6 +252,16 @@ def _make_case(module: Any, model: str, site: str, m: int, seed: int) -> dict[st
         torch.cuda.synchronize()
     except Exception as exc:
         raise RuntimeError(f"tlx_candidate_compile:{type(exc).__name__}") from exc
+    try:
+        tlx_anchor()
+        torch.cuda.synchronize()
+    except Exception as exc:
+        raise RuntimeError(f"tlx_anchor_compile:{type(exc).__name__}") from exc
+    try:
+        cublas_anchor()
+        torch.cuda.synchronize()
+    except Exception as exc:
+        raise RuntimeError(f"cublas_anchor_compile:{type(exc).__name__}") from exc
     correctness: dict[str, dict[str, Any]] = {}
     for name, fn in arms.items():
         y = fn()
@@ -323,6 +351,7 @@ def _blocked_receipt(out: Path, reason: str, args: argparse.Namespace) -> None:
         "protocol": {"candidate": "TLX only; no fallback promotion",
                      "dtype": "bfloat16", "epsilon": EPS,
                      "correctness_before_timing": True,
+                     "anchor_gate": "tlx_anchor_p50_us / cublas_p50_us <= 1.01",
                      "fastest_baseline_rule": "min successful baseline median"},
         "requested": {"models": args.models, "sites": args.sites,
                        "m_values": args.m_values, "smoke": bool(args.smoke)},
@@ -411,11 +440,14 @@ def main() -> int:
                             row["retest_speedup_vs_fastest"] = fastest_retest / cand_retest
                             fastest, cand = fastest_retest, cand_retest
                             selected_timing = retest
-                        anchor_ratio = (selected_timing["unfused_vendor_anchor"]["median_us"] /
-                                        selected_timing["cublas_reference"]["median_us"])
+                        anchor_p50 = selected_timing["tlx_anchor"]["median_us"]
+                        cublas_p50 = selected_timing["cublas_anchor"]["median_us"]
+                        anchor_ratio = anchor_p50 / cublas_p50
                         row.update({"fastest_baseline_us": fastest,
                                     "initial_speedup_vs_fastest": initial_speedup,
                                     "speedup_vs_fastest": fastest / cand,
+                                    "anchor_p50_us": anchor_p50,
+                                    "cublas_p50_us": cublas_p50,
                                     "anchor_ratio": anchor_ratio,
                                     "anchor_gate": anchor_ratio <= 1.01,
                                     "fastest_baseline": min(
@@ -433,6 +465,8 @@ def main() -> int:
                             "candidate_us": cand,
                             "fastest_baseline_us": fastest,
                             "speedup_vs_fastest": fastest / cand,
+                            "anchor_p50_us": anchor_p50,
+                            "cublas_p50_us": cublas_p50,
                             "retest": "yes" if initial_speedup > 1.01 else "no",
                             "fastest_baseline": row["fastest_baseline"],
                             "correctness_pass": True,
@@ -446,7 +480,9 @@ def main() -> int:
                            "error": "OutOfMemoryError"}
                     torch.cuda.empty_cache()
                 except Exception as exc:  # fail closed per row
-                    if args.smoke and "tlx_candidate_compile" in str(exc):
+                    if args.smoke and any(code in str(exc) for code in (
+                            "tlx_candidate_compile", "tlx_anchor_compile",
+                            "cublas_anchor_compile")):
                         _blocked_receipt(out, str(exc), args)
                         return 2
                     row = {"model": model, "site": site, "M": m,
@@ -463,6 +499,8 @@ def main() -> int:
                         "seed": row_seed, "K": k_bad, "N": n_bad,
                         "candidate_us": "", "fastest_baseline_us": "",
                         "speedup_vs_fastest": "", "fastest_baseline": "",
+                        "anchor_p50_us": "", "cublas_p50_us": "",
+                        "anchor_ratio": "", "anchor_gate": "",
                         "retest": "no", "correctness_pass": False,
                         "status": row["status"],
                     })
@@ -485,6 +523,7 @@ def main() -> int:
                      "traces": "private Chrome traces; receipt stores hashes only"
                      if args.trace_dir is not None else "disabled",
                      "correctness_before_timing": True,
+                     "anchor_gate": "tlx_anchor_p50_us / cublas_p50_us <= 1.01",
                      "fastest_baseline_rule": "minimum of separate_norm_cublas, row_scale_cublas, torch_compile_max_autotune",
                      "claim_boundary": "forward-only operator; public geometry; no checkpoint/full-model claim"},
         "rows": rows,
