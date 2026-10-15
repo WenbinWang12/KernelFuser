@@ -3,9 +3,9 @@
   "status": "blocked_dependency",
   "publication_eligible": false,
   "blocker": "tlx_import_failed:ModuleNotFoundError",
-  "source_commit": "ee5ef4d",
-  "source_sha256": "4cf302216a037c99973c26f8fcc7fc46f03e5c21b1a44e72cd13dc2e06d2b93d",
-  "runner_source_sha256": "4cf302216a037c99973c26f8fcc7fc46f03e5c21b1a44e72cd13dc2e06d2b93d",
+  "source_commit": "37a98e7",
+  "source_sha256": "70cd396282c3d96461f332ecd6cd7227ce60f941b738abfa5c1e024aff7459c3",
+  "runner_source_sha256": "70cd396282c3d96461f332ecd6cd7227ce60f941b738abfa5c1e024aff7459c3",
   "environment": {
     "torch": "2.5.1",
     "python": "3.11.16",
@@ -25,6 +25,7 @@
     "dtype": "bfloat16",
     "epsilon": 1e-06,
     "correctness_before_timing": true,
+    "anchor_gate": "tlx_anchor_p50_us / cublas_p50_us <= 1.01",
     "fastest_baseline_rule": "min successful baseline median"
   },
   "requested": {
