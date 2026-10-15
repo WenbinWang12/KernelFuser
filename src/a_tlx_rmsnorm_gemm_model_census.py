@@ -17,6 +17,7 @@ import json
 import math
 import os
 import random
+import re
 import statistics
 import subprocess
 import time
@@ -236,20 +237,28 @@ def main():
 
     def capture_trace(call, path, label):
         path.parent.mkdir(parents=True, exist_ok=True)
-        with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA]) as profile:
-            with torch.profiler.record_function(label):
-                call()
+        attempts = []
+        for attempt in range(3):
             torch.cuda.synchronize()
-        raw = path.with_suffix("")
-        profile.export_chrome_trace(str(raw))
-        payload = raw.read_bytes()
-        events = json.loads(payload)["traceEvents"]
-        kernels = [e for e in events if e.get("cat") == "kernel"]
-        with gzip.open(path, "wb") as handle:
-            handle.write(payload)
-        raw.unlink()
-        return {"path": str(path), "sha256": sha(path), "kernel_count": len(kernels),
-                "kernel_names": [e.get("name") for e in kernels], "nonempty_gpu_trace": bool(kernels)}
+            with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA]) as profile:
+                with torch.profiler.record_function(label):
+                    call()
+                torch.cuda.synchronize()
+            raw = path.with_suffix("")
+            profile.export_chrome_trace(str(raw))
+            payload = raw.read_bytes()
+            events = json.loads(payload)["traceEvents"]
+            kernels = [e for e in events if e.get("cat") == "kernel"]
+            artifact = path if kernels or attempt == 2 else path.with_name(path.name + f".attempt{attempt}.gz")
+            with gzip.open(artifact, "wb") as handle:
+                handle.write(payload)
+            raw.unlink()
+            attempts.append({"path": str(artifact), "sha256": sha(artifact), "kernel_count": len(kernels)})
+            if kernels:
+                break
+        return {"path": str(artifact), "sha256": sha(artifact), "kernel_count": len(kernels),
+                "kernel_names": [e.get("name") for e in kernels], "nonempty_gpu_trace": bool(kernels),
+                "capture_attempts": attempts}
 
     for cfg, site, m in scope:
         row = {"model": cfg["model"], "site": site, "M": m, "K": cfg.get("hidden_size"),
@@ -270,9 +279,10 @@ def main():
             torch._dynamo.reset()
             k, n, eps = row["K"], row["N"], cfg["norm_epsilon"]
             bm, bn, stages, warps = (64, 128, 3, 4) if m < 512 else (128, 128, 3, 4)
+            bk = 64
             if m == 128:
-                bm = 128
-            row["schedule"] = {"bm": bm, "bn": bn, "bk": 64, "stages": stages, "warps": warps}
+                bm, bn, bk, stages = 64, 128, 128, 4
+            row["schedule"] = {"bm": bm, "bn": bn, "bk": bk, "stages": stages, "warps": warps}
             default = torch.compile(unfused, fullgraph=True, dynamic=False)
             maximum = torch.compile(unfused, fullgraph=True, dynamic=False, mode="max-autotune")
             compiled_norm = torch.compile(norm, fullgraph=True, dynamic=False)
@@ -292,11 +302,11 @@ def main():
                 anchor_out = torch.empty_like(out)
                 def candidate():
                     kernel.lazy_rms_projection(xx, ww, bb, out, inverse, eps=eps,
-                                               bm=bm, bn=bn, stages=stages, warps=warps)
+                                               bm=bm, bn=bn, bk=bk, stages=stages, warps=warps)
                     return out
                 def anchor():
                     kernel.lazy_rms_projection(xx, ww, bb, anchor_out, inverse, eps=eps,
-                                               bm=bm, bn=bn, stages=stages, warps=warps, standalone=True)
+                                               bm=bm, bn=bn, bk=bk, stages=stages, warps=warps, standalone=True)
                     return anchor_out
                 return {
                     "candidate": candidate,
@@ -368,11 +378,17 @@ def main():
                 # addmm is positive evidence that this operation is unfused.
                 external_gemm = "extern_kernels.addmm" in code or "extern_kernels.mm" in code
                 separate_norm = "rsqrt" in code and ("tl.store" in code or "triton_poi" in code)
-                status = "not_fused" if external_gemm and separate_norm and count >= 2 else "compiler_already_fused" if count == 1 and "rsqrt" in code else "unknown"
+                # Max-autotune may choose a Triton GEMM template rather than
+                # extern_kernels. Prove that a BF16 normalized-input buffer
+                # is written by the reduction and consumed by a distinct GEMM.
+                materialized_norm = bool(re.search(r"triton_red[^\n]*\.run\([^\n]*buf(\d+)", code))
+                separate_template = "triton_tem" in code and "addmm" in code and materialized_norm
+                status = "not_fused" if separate_norm and (external_gemm or separate_template) and count >= 2 else "compiler_already_fused" if count == 1 and "rsqrt" in code else "unknown"
                 statuses.append(status)
                 reports[label] = {"status": status, "kernel_count": count,
                                   "code_sha256": hashlib.sha256(code.encode()).hexdigest(),
-                                  "external_gemm": external_gemm, "separate_norm": separate_norm}
+                                  "external_gemm": external_gemm, "separate_norm": separate_norm,
+                                  "materialized_normalized_input": materialized_norm, "separate_gemm_template": separate_template}
             row["compiler_report"] = reports
             row["compiler_status"] = "compiler_already_fused" if "compiler_already_fused" in statuses else "not_fused" if all(x == "not_fused" for x in statuses) else "unknown"
             if m == 128 and cfg["model"] == "Qwen3-8B":
