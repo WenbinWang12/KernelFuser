@@ -16,6 +16,7 @@ import hashlib
 import json
 import math
 import os
+import random
 import statistics
 import subprocess
 import time
@@ -48,6 +49,43 @@ def summarize(values):
     return {"p50_ms": statistics.median(values) / 1000,
             "p95_ms": percentile(values, .95) / 1000,
             "samples_us": values}
+
+
+def event_paired(functions, rounds, samples, replays, seed):
+    """CUDA-event operator latency, with the requested compiler modes intact.
+
+    Max-autotune can own an internal CUDA graph. Calls are not nested inside
+    an external capture. All arms include their normal dispatch path and
+    receive identical repeated-call/event timing and warmup policies.
+    """
+    import torch
+    rng = random.Random(seed)
+    values = {name: [] for name in functions}
+    orders = []
+    for _ in range(rounds):
+        for call in functions.values():
+            for _ in range(20):
+                call()
+        torch.cuda.synchronize()
+        for _ in range(samples):
+            order = list(functions)
+            rng.shuffle(order)
+            orders.append(order)
+            for name in order:
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                start.record()
+                for _ in range(replays):
+                    functions[name]()
+                end.record()
+                end.synchronize()
+                values[name].append(start.elapsed_time(end) * 1000 / replays)
+    return {"arms": {name: {"median_us": statistics.median(times), "samples_us": times}
+                     for name, times in values.items()},
+            "protocol": {"mode": "cuda_event_repeated_operator_calls", "rounds": rounds,
+                         "samples_per_round": samples, "calls_per_sample": replays,
+                         "warmups_per_round": 20, "arm_order": orders, "seed": seed,
+                         "includes_dispatch": True, "external_cuda_graph_capture": False}}
 
 
 def write_public(rec, path):
@@ -113,9 +151,11 @@ def main():
            "config_manifest_sha256": sha(args.manifest), "expected_rows": len(scope),
            "scope": "synthetic BF16 weights at pinned public model projection geometries; isolated forward only",
            "contract": "lazy RMSNorm: gamma folded once into BF16 weight; FP32 accumulators and bias; no normalized input materialized",
-           "timing_protocol": {"warmups": 10, "rounds": args.rounds, "samples": args.samples,
+           "timing_protocol": {"warmups": 20, "rounds": args.rounds, "samples": args.samples,
                                "replays": args.replays, "candidate_paired_with_each_baseline": True,
-                               "fresh_retest": True, "noise": "same-shape A/A, p95 absolute paired ratio deviation"},
+                               "fresh_retest": True, "mode": "cuda_event_repeated_operator_calls",
+                               "includes_dispatch": True, "torch_compile_max_autotune_mode": "max-autotune",
+                               "noise": "same-shape A/A, p95 absolute paired ratio deviation"},
            "rows": []}
     trace_root = args.trace_dir or args.out.parent / "traces"
 
@@ -143,7 +183,7 @@ def main():
         print("blocked_dependency: TLX unavailable;", len(scope), "rows retained", flush=True)
         return
 
-    from fusion_harness import paired
+    paired = event_paired
     import e1_rope_publication_v1 as provenance
     from tlx_ads_sm90_port import ads_sm90_rmsnorm_matmul as kernel
     from torch._inductor.utils import run_and_get_code
