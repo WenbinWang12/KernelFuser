@@ -1,0 +1,36 @@
+{
+  "schema": "kernelfuser-a-rmsnorm-gemm-v1",
+  "status": "blocked_dependency",
+  "publication_eligible": false,
+  "blocker": "tlx_import_failed:ModuleNotFoundError",
+  "source_commit": "ee5ef4d",
+  "source_sha256": "4cf302216a037c99973c26f8fcc7fc46f03e5c21b1a44e72cd13dc2e06d2b93d",
+  "runner_source_sha256": "4cf302216a037c99973c26f8fcc7fc46f03e5c21b1a44e72cd13dc2e06d2b93d",
+  "environment": {
+    "torch": "2.5.1",
+    "python": "3.11.16",
+    "cuda_runtime": "12.4",
+    "cuda_available": true,
+    "triton": "3.1.0",
+    "device": "NVIDIA H200 NVL",
+    "capability": [
+      9,
+      0
+    ]
+  },
+  "geometry_config_sha256": "48367f40d9adef63b8c2161e491775e1cabbbeac1e8411d32355d6e705bdab89",
+  "config_manifest_sha256": "48367f40d9adef63b8c2161e491775e1cabbbeac1e8411d32355d6e705bdab89",
+  "protocol": {
+    "candidate": "TLX only; no fallback promotion",
+    "dtype": "bfloat16",
+    "epsilon": 1e-06,
+    "correctness_before_timing": true,
+    "fastest_baseline_rule": "min successful baseline median"
+  },
+  "requested": {
+    "models": "Qwen3-8B",
+    "sites": "qkv",
+    "m_values": "128",
+    "smoke": true
+  }
+}
