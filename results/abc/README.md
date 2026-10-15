@@ -16,7 +16,8 @@ They were collected on the allowed H200 physical cards 5, 6, and 7 from the
   is present, while TorchRec/FBGEMM and the C implementation are absent. No C
   timing row was emitted.
 
-The H100 counterparts are queued on physical cards 0, 1, and 2 and will be
-added only after those cards become idle. H200 cards 0--3 were not used.
+The H100 B and C counterparts completed on physical cards 1 and 2 and are
+included beside the H200 receipts. The H100 A TLX smoke remains queued on
+physical card 0 because that card is busy. H200 cards 0--3 were not used.
 See [`experiments/ABC_VENDOR_ANCHOR_PLAN.md`](../../experiments/ABC_VENDOR_ANCHOR_PLAN.md)
 for the full pre-registered scope and promotion rules.

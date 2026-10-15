@@ -1,0 +1,64 @@
+{
+  "checks": {
+    "flash_attn": {
+      "available": false,
+      "error": "No module named 'flash_attn'",
+      "error_type": "ModuleNotFoundError"
+    },
+    "torch": {
+      "available": true,
+      "version": "2.11.0+cu128"
+    },
+    "torch_compile": {
+      "available": true
+    },
+    "transformers": {
+      "available": true,
+      "version": "5.16.0"
+    },
+    "triton": {
+      "available": true,
+      "version": "3.6.0"
+    },
+    "vendor_sdpa": {
+      "cuda_available": true,
+      "cuda_backend_built": true,
+      "flash_attn_import": false,
+      "torch_scaled_dot_product_attention": true
+    }
+  },
+  "claim_boundary": "CPU/import/config smoke only; no timing or performance claim",
+  "environment": {
+    "cuda_available": true,
+    "cuda_built": true,
+    "cuda_runtime": "12.8",
+    "gpu_name": "NVIDIA H100 NVL",
+    "torch": "2.11.0+cu128",
+    "triton": "3.6.0"
+  },
+  "model": {
+    "file_name": "qwen3_8b_config.json",
+    "file_sha256": "fba9463885c36d53f9285d263d5b9868d671ca397c37ea35e77dd207226d8a34",
+    "geometry": {
+      "head_dim": 128,
+      "hidden_size": 4096,
+      "num_attention_heads": 32,
+      "num_key_value_heads": 8,
+      "rms_norm_eps": 1e-06,
+      "rope_theta": 1000000.0
+    },
+    "model_id": "Qwen/Qwen3-8B",
+    "source": "local_json",
+    "status": "valid"
+  },
+  "plan": {
+    "path": "experiments/ABC_VENDOR_ANCHOR_PLAN.md",
+    "sha256": "749119eec0cd56ac859fd93c1ed81a4039c0f59d0f4eb0c51f47b3cb18370e1e"
+  },
+  "publication_eligible": false,
+  "reasons": [],
+  "schema": "kernelfuser-abc-b-import-smoke-v1",
+  "source_sha256": "fcc2dece9a72db61dd1a1fe059ae361fff59ea3c031dbb9858ca6d665726b8c9",
+  "status": "ready_for_implementation",
+  "track": "B"
+}
