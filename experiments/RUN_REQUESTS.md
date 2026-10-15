@@ -1,9 +1,8 @@
 ﻿# OSU GPU handoff: revised P0/P1 runs
 
-Run these on the OSU H100 and H200 systems only. On H200, the completed
-receipts in this bundle were collected on cards 0/1 and remain valid; do not
-launch any further jobs on H200 cards 0/1/2/3. Any future H200 rerun must use
-an available card in 4--7. Do not use withdrawn or
+Run these on the OSU H100 and H200 systems only. H200 physical cards 0--3 are
+reserved and must never be used. Any H200 run must use an available card in
+4--7. Do not use withdrawn or
 non-canonical receipts as substitutes. A promoted row must record source hash,
 host/GPU/software versions, fixed seeds, correctness before timing, randomized
 paired timing, fresh retest, GPU-exclusivity snapshots, and non-empty Chrome
@@ -111,3 +110,13 @@ vendor-anchor gates, OSU queue commands, and receipt schema.  The current
 repository has no B or C implementation or result: do not relabel the E1
 attention-prologue rows as B, and do not use the Blackwell-only `tlx_jfa`
 sources as an H100/H200 C result.
+
+The ABC dependency smoke was run on H200 cards 5, 6, and 7. The A receipt is
+`blocked_dependency` because the formal H200 Triton stack lacks the TLX
+namespace; B is `ready_for_implementation` after the public Qwen3-8B shape
+check; C is `blocked_dependency` because TorchRec/FBGEMM and the C kernel are
+not installed. The corresponding H100 smoke scripts are queued on physical
+cards 0, 1, and 2 and wait for exclusivity. Do not launch the 126-row A census
+until its TLX smoke passes, and do not write any ABC number into
+`Experiment.tex` before the receipt promotion gates in
+`ABC_VENDOR_ANCHOR_PLAN.md` pass.
