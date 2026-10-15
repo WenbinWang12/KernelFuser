@@ -200,3 +200,175 @@ The numerical/performance tables were measured before relocation; focused
 integration checks verify the relocated APIs and existing runner modes.
 Only the three result CSVs are new files; the implementations, verification
 entry points, README and this results document update existing files.
+
+## H100 ABC follow-up (2026-10-15)
+
+This rerun starts from `84b0adc5a8588a3f2c40efaeca770038f8f00c08`,
+which adds the ABC specification. The README default attention experiments
+and the new A smoke are separate scopes. E1 uses native Triton attention
+proxies; it is neither TLX nor the QKV-output fusion requested by ABC B.
+Earlier `--refine` tables above remain separate experiments.
+
+### README attention census
+
+| Experiment | Completed rows | Faster than unfused | Faster than fastest baseline |
+|---|---:|---:|---:|
+| Q/K RMSNorm + split-half RoPE attention | 216 | 148 (68.5%) | 14 (6.5%) |
+| Legacy Q/K RMSNorm attention, B=1 | 144 | 73 (50.7%) | 30 (20.8%) |
+| Total | 360 | 221 (61.4%) | 44 (12.2%) |
+
+These are raw ratios above 1.0, not noise-confirmed ABC wins. All 360 rows
+have passing numerical, timing, exclusivity and GPU-trace checks. The compiled
+arm is fastest in every RoPE row and 128 legacy rows; the custom unfused arm
+is fastest in the other 16 legacy rows. Beating the hand-written unfused
+anchor frequently does not beat the compiled operator.
+
+The RoPE scope is nine original proxy geometries, B={1,8,32},
+S={128,256,384,512}, and both mask modes. Legacy uses the same nine proxy
+labels, B=1, eight sequence lengths through 2048, and both mask modes.
+Actual head counts, dimension, epsilon and attention scaling are exported.
+These historical proxy geometries are preserved rather than replaced by
+current model configs; for example, legacy Qwen3-1.7B has 32 query heads,
+while the pinned ABC config has 16. These are not full-model semantics.
+
+RoPE retains five rounds of 40 paired CUDA-event samples per baseline and
+independent retests. Its exported candidate median is conservatively the
+maximum across the three retested pairs. Legacy retains five rounds of 100
+paired samples for the custom unfused arm, with an independent retest when
+the initial ratio exceeds 1.01. Its additional compiled/vendor medians use
+the original runner's separate timing blocks, not a new fully paired ABC
+protocol. Both use the release stack: PyTorch 2.11.0+cu128, Triton 3.6.0,
+CUDA 12.8, on H100. Selected cards were exclusive, with a 650 W power cap
+and 1980 MHz graphics cap; one-second occupancy checks are retained privately.
+
+- [216 RoPE rows](h100_rope_vendor_retest_20261015.csv)
+- [144 legacy rows](h100_legacy_vendor_retest_20261015.csv)
+- [Rejected and interrupted attempts](h100_invalid_attempts_20261015.csv)
+- [24 RoPE A/A rows on four physical cards](h100_rope_aa_retest_20261015.csv)
+- [Seven supplementary A/A controls](h100_supplementary_aa_retest_20261015.csv)
+
+The RoPE A/A p95 absolute paired-ratio deviations range from 0.38% to 9.29%.
+These six-shape controls do not provide a same-shape noise bound for all
+360 census rows. Every E1 row therefore has `publication_eligible=false`.
+Neither a fixed 1% noise margin nor these diagnostic raw wins raises the
+ABC win rate.
+
+### GPU trace remediation
+
+The original trace checks accepted nonempty CPU-only files. The updated
+helper requires actual GPU kernel events, retries three captures, and retains
+failed artifacts. After valid earlier captures were retained and failed
+cases rerun, 136 cases still lacked GPU events in long-lived processes.
+Serializing profiler sessions recovered only 13 of those 136 in a diagnostic
+run. Running each of the 136 in a fresh Python/CUDA process recovered all of
+them. The seven supplementary A/A controls needed the same workaround.
+
+This localizes the practical failure to process/profiler lifecycle reuse;
+the exact underlying library defect is not established. E1's original JIT,
+correctness and per-case timing function definitions match `84b0adc` by AST
+comparison. Changes are trace validation and optional process isolation.
+Each CSV records the measured source commit/hash and trace hashes with GPU
+kernel counts. Canonical E1 sources are `84b0adc`, `53902f6`, or `9f90a50`.
+The serialization trial is excluded from canonical selections because its
+full source identity was not frozen throughout that diagnostic run. Raw
+failed traces and partial attempts remain in the private audit bundle.
+
+### A: lazy RMSNorm to projection
+
+The new runner freezes eight accessible public configs and records all nine
+requested model labels. No model weights were downloaded. The release TLX
+import smoke fails because `triton.language.extra.tlx` is absent. All
+126 release rows are retained as `blocked_dependency`; no release timing or
+publication-eligible A win is reported. OLMo's official HF conversion uses
+LayerNorm without affine parameters and cannot substitute for RMSNorm.
+Llama-3.1's official config request requires access; its dimensions are not
+guessed. The manifest records both conditions.
+
+Development TLX smokes are limited to Qwen3-8B M=128, K=4096, with
+N=6144 for QKV and N=24576 for gate/up. The development stack is reported
+separately: PyTorch 2.15.0a0, Triton 3.8.0, CUDA 13.3.0, with the TLX source
+SHA256 retained. Three FP32 correctness seeds run before timing. The tested
+compiler reports show distinct normalization and GEMM kernels. Five traces,
+paired baselines, a fresh retest, identical standalone-GEMM graph timing,
+normal output allocation, and same-shape A/A measurements are retained.
+
+The final candidate folds gamma into BF16 weights once, reduces inverse RMS
+inside the same GPU kernel, computes GEMM with FP32 accumulators, applies row
+scaling and bias in FP32, and stores BF16. It materializes neither a normalized
+input nor global scalar scratch. Its rounding differs from eager BF16
+RMSNorm and is explicitly checked against original and folded-weight FP32
+oracles. The older reduction-split prototype launches two kernels and is a
+separately named diagnostic.
+
+| Development M128 smoke | Interleaved reduction retest | Hoisted reduction retest | Final ratio vs fastest | Standalone GEMM / cuBLAS | A/A noise |
+|---|---:|---:|---:|---:|---:|
+| QKV | 104.005 us | 41.991 us | 1.378x | 0.9770 | 5.56% |
+| Gate/up | 188.423 us | 128.099 us | 0.830x | 1.0181 | 0.50% |
+
+Hoisting the FP32 reduction ahead of the asynchronous GEMM pipeline improves
+QKV candidate latency by 2.48x and gate/up by 1.47x in these independent
+smokes. The final runner measures the standalone anchor before fusion timing,
+as required by the plan. QKV's 1.378x diagnostic gain exceeds its 5.56% A/A
+noise bound and its standalone gate passes; that row is `tested_pass`.
+Gate/up still loses to the fastest compiled arm and fails the <=1.01
+standalone gate, so it is `tested_invalid`, with claim ratios blank and raw
+ratios explicitly labeled diagnostic. Neither row is publication-eligible:
+they are development-stack smokes with unpublished source, not a release
+census. There is no full 126-row development census.
+
+The first hoisted run measured the standalone anchor after fusion timing and
+failed both standalone gates (QKV ratio 1.0206, gate/up 1.0115). That receipt
+is preserved as a separate diagnostic. The corrected-order verification uses
+source `56305e7`; its kernel math/schedule is unchanged. These independent
+anchor outcomes also show why a smoke is insufficient to establish a
+repeatable full-census vendor-quality anchor. M128 optimization-step timings
+retain each older variant's output policy; they are diagnostic ablations.
+
+Compiler resources show no spills in either variant. QKV uses 96 registers
+without normalization, 124 with interleaved reduction and 128 with hoisted
+reduction; gate/up uses 168, 227 and 227 respectively. Shared memory is
+196,608 B for QKV and 98,304 B for gate/up. The improvement is consistent
+with removing vector reduction work from the asynchronous GEMM loop, rather
+than reducing spills or register counts. Each output-column CTA repeats RMS
+work: 48 column tiles for QKV and 192 for gate/up. This extra work and the
+resource cost explain why removing a launch does not guarantee a gain.
+A two-kernel reduction can avoid repeated work, but is a different fusion
+contract. Further A promotion requires a release TLX stack and a repeatable
+vendor-quality standalone schedule.
+
+The earlier preallocated-output prototype biased allocation policy against
+normally allocating baselines. It remains labeled as an allocation-mismatched
+diagnostic and is excluded from equal-allocation comparisons.
+
+- [Pinned model/config manifest](../data/abc_model_manifest.json)
+- [126 blocked release rows](abc/h100_a_release_20261015.csv)
+- [Final development smoke CSV](abc/h100_a_development_20261015.csv)
+- [Final sanitized samples, gates and resource evidence](abc/h100_a_development_20261015.json)
+- [Interleaved one-kernel diagnostic](abc/h100_a_interleaved_diagnostic_20261015.csv)
+- [Reduction-split diagnostic](abc/h100_a_reduction_split_diagnostic_20261015.csv)
+- [Earlier hoisted run with failed anchors](abc/h100_a_hoisted_diagnostic_20261015.csv)
+- [Standalone schedule exploration](abc/h100_a_m128_schedule_diagnostic_20261015.csv)
+
+Schedule exploration records its exact dimensions; its gate/up N=28672 is
+the Mistral geometry, not the final Qwen3-8B smoke. It is not a model census
+or a promoted result. Source/config hashes and original failed measurements
+are retained rather than replacing them with an optimistic retest.
+
+### B and C readiness
+
+B has no QKV-output norm/RoPE candidate or full-model reference in the
+requested source. Its [108-row readiness manifest](abc/h100_b_readiness_20261015.json)
+is `blocked_on_implementation`, with zero attempted GPU rows and no timings.
+Existing E1 attention-prologue fusion does not satisfy B.
+
+TorchRec and FBGEMM dependency probes fail in both tested environments.
+C has no pinned public interaction module/layout, histogram manifest or
+candidate. Its [128-row readiness manifest](abc/h100_c_readiness_20261015.json)
+is `blocked_dependency`, with zero attempted GPU rows. Its shape-scope hash
+identifies only the planned matrix, not a frozen module/layout. No dense
+surrogate or Blackwell-only JFA kernel is substituted.
+
+A/B/C readiness files preserve all 126/108/128 planned rows and contain no
+estimated timings. No ABC result is publication-eligible. Public artifacts
+exclude host identifiers, physical GPU UUIDs, process IDs, private paths,
+weights and raw traces.

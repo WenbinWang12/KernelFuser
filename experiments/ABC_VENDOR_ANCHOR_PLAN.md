@@ -324,3 +324,26 @@ beats eager Python while losing to compiled or vendor code is a regression.
 
 No estimated speedup, projected win count, or expected percentage belongs in
 `results/` or `Experiment.tex` until the complete receipt passes these gates.
+
+## H100 execution status (2026-10-15)
+
+The campaign began from commit `84b0adc`. Measured diagnostics and coverage
+are documented in [results/RESULTS.md](../results/RESULTS.md#h100-abc-follow-up-2026-10-15);
+the acceptance contract above is unchanged.
+
+- A's model census runner and immutable public-config manifest are now present.
+  The release TLX dependency audit retains all 126 rows as blocked. Two M128
+  development smokes and optimization-step ablations remain diagnostic; they
+  do not establish a release census. Final QKV smoke gates pass; gate/up fails
+  the standalone vendor gate. Both remain ineligible for paper promotion.
+  OLMo's LayerNorm contract and the unavailable official Llama config are
+  explicitly recorded instead of substituting RMSNorm or guessing dimensions.
+- B's 108 planned rows remain blocked on the missing QKV-output fusion and
+  model reference. The README E1 rerun is a separate attention-prologue proxy.
+- C's 128 planned rows remain blocked on public dependencies and module/layout
+  readiness. A shape matrix is not a legal public interaction implementation.
+- The README default E1 and A/A scopes were rerun with validated GPU events.
+  Fresh processes recover captures lost during repeated profiler use. Failed
+  attempts are retained; diagnostic ratios do not increase the ABC win rate.
+
+No paper table, manuscript or promotion formula was changed.
