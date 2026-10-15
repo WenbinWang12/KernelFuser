@@ -122,6 +122,8 @@ def main():
     parser.add_argument("--m", default="1,8,32,128,512,2048,8192")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--trace-dir", type=Path)
+    parser.add_argument("--public-csv", type=Path,
+                        help="Sanitized CSV destination; defaults beside the raw receipt")
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--allow-development", action="store_true")
     parser.add_argument("--rounds", type=int, default=5)
@@ -163,7 +165,7 @@ def main():
 
     def save():
         args.out.write_text(json.dumps(rec, indent=2) + "\n")
-        write_public(rec, ROOT / "results/abc/h100_a_development_20261015.csv" if args.allow_development else ROOT / "results/abc/h100_a_release_20261015.csv")
+        write_public(rec, args.public_csv or args.out.with_suffix(".csv"))
 
     try:
         import torch
