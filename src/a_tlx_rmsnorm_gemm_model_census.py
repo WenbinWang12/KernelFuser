@@ -86,7 +86,8 @@ def event_paired(functions, rounds, samples, replays, seed):
             "protocol": {"mode": "cuda_event_repeated_operator_calls", "rounds": rounds,
                          "samples_per_round": samples, "calls_per_sample": replays,
                          "warmups_per_round": 20, "arm_order": orders, "seed": seed,
-                         "includes_dispatch": True, "external_cuda_graph_capture": False}}
+                         "includes_dispatch": True, "external_cuda_graph_capture": False,
+                         "candidate_output_ownership": "fresh_output_and_scalar_scratch_per_operator_call"}}
 
 
 def write_public(rec, path):
@@ -305,9 +306,14 @@ def main():
                 out = torch.empty((m, n), device="cuda", dtype=torch.bfloat16)
                 anchor_out = torch.empty_like(out)
                 def candidate():
-                    kernel.lazy_rms_projection(xx, ww, bb, out, inverse, eps=eps,
+                    # Match normal operator output ownership: compiled/vendor
+                    # calls return fresh outputs, so the candidate allocates
+                    # its output and required scalar scratch on each call.
+                    result = torch.empty((m, n), device=xx.device, dtype=xx.dtype)
+                    scalar = torch.empty(m, device=xx.device, dtype=torch.float32)
+                    kernel.lazy_rms_projection(xx, ww, bb, result, scalar, eps=eps,
                                                bm=bm, bn=bn, bk=bk, stages=stages, warps=warps)
-                    return out
+                    return result
                 def anchor():
                     kernel.lazy_rms_projection(xx, ww, bb, anchor_out, inverse, eps=eps,
                                                bm=bm, bn=bn, bk=bk, stages=stages, warps=warps, standalone=True)
