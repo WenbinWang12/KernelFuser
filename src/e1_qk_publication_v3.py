@@ -736,7 +736,10 @@ def verify_factored_refinement(args):
         (args.out / 'results.json').write_text(json.dumps(rec, indent=2) + '\n')
 
 if __name__ == '__main__':
-    if '--refine' in sys.argv:
+    if '--fresh-processes' in sys.argv:
+        from fusion_harness import fresh_process_census
+        fresh_process_census(__file__, list(MODELS), rope=False)
+    elif '--refine' in sys.argv:
         parser=argparse.ArgumentParser(description='H100 no-RoPE scalar factoring')
         parser.add_argument('--refine',action='store_true')
         parser.add_argument('--out',type=Path,required=True)

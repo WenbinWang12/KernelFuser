@@ -908,7 +908,10 @@ def verify_refinement(args):
         save()
 
 if __name__ == '__main__':
-    if '--refine' in sys.argv or '--tune' in sys.argv:
+    if '--fresh-processes' in sys.argv:
+        from fusion_harness import fresh_process_census
+        fresh_process_census(__file__, list(MODELS), rope=True)
+    elif '--refine' in sys.argv or '--tune' in sys.argv:
         parser=argparse.ArgumentParser(description='H100 attention refinement')
         parser.add_argument('--refine',action='store_true')
         parser.add_argument('--tune',action='store_true')

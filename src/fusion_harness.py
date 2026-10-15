@@ -148,3 +148,98 @@ def capture_gpu_trace(fn, path, label, attempts=3):
             if kernels:
                 return str(path)
     raise RuntimeError("Profiler captured no GPU kernel events after retries")
+
+
+def fresh_process_census(script, models, *, rope):
+    """Run each pre-registered shape in a fresh Python/CUDA process.
+
+    This resets profiler lifecycle state between shapes. The child uses the
+    original correctness, warmup, timing and retest protocol without changes.
+    """
+    import argparse
+    import itertools
+    import os
+    import subprocess
+    import sys
+    import time
+    parser = argparse.ArgumentParser(description="Fresh-process E1 census")
+    parser.add_argument("--fresh-processes", action="store_true")
+    parser.add_argument("--models", default=",".join(models))
+    parser.add_argument("--sizes", default="128,256,384,512" if rope else "128,256,384,512,768,1024,1536,2048")
+    parser.add_argument("--causal-modes", default="false,true")
+    parser.add_argument("--rounds", type=int, default=5)
+    parser.add_argument("--samples", type=int, default=40 if rope else 100)
+    parser.add_argument("--output", type=Path, required=True)
+    if rope:
+        parser.add_argument("--batches", default="1,8,32")
+        parser.add_argument("--trace-dir", type=Path)
+        parser.add_argument("--smoke", action="store_true")
+    args = parser.parse_args()
+    names = args.models.split(",")
+    sizes = [int(value) for value in args.sizes.split(",")]
+    batches = [int(value) for value in args.batches.split(",")] if rope else [1]
+    masks = args.causal_modes.split(",")
+    if set(names) - set(models) or not set(masks) <= {"false", "true"}:
+        parser.error("Unknown model or causal mode")
+    if min(sizes + batches) < 1 or args.rounds < 1 or args.samples < 2:
+        parser.error("Positive dimensions, rounds and at least two samples required")
+    if rope and args.smoke:
+        names, sizes, batches, masks = ["Qwen3-8B"], [128], [1], ["false"]
+        args.rounds, args.samples = 2, 20
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    if not visible.isdigit():
+        parser.error("Set CUDA_VISIBLE_DEVICES to one physical GPU index")
+    inventory = subprocess.check_output(["nvidia-smi", "--query-gpu=index,uuid", "--format=csv,noheader,nounits"], text=True)
+    mapping = {line.split(",")[0].strip(): line.split(",")[1].strip() for line in inventory.splitlines()}
+    if visible not in mapping:
+        parser.error("Selected GPU index is unavailable")
+    selected_uuid = mapping[visible]
+    def wait_idle():
+        while True:
+            apps = subprocess.check_output(["nvidia-smi", "--query-compute-apps=gpu_uuid,pid", "--format=csv,noheader,nounits"], text=True)
+            if not any(line.split(",")[0].strip() == selected_uuid for line in apps.splitlines() if "," in line):
+                return
+            time.sleep(5)
+    script = Path(script).resolve()
+    source_sha256 = hashlib.sha256(script.read_bytes()).hexdigest()
+    support_sha256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    scope = list(itertools.product(names, batches, sizes, masks))
+    cases = args.output.parent / (args.output.stem + "_cases")
+    cases.mkdir(parents=True, exist_ok=True)
+    aggregate = None
+    env = os.environ.copy()
+    # Preserve package resolution when launched by a packaged Python runner.
+    env["PYTHONPATH"] = os.pathsep.join(str(path) for path in sys.path if path)
+    for index, (name, batch, size, mask) in enumerate(scope):
+        wait_idle()
+        directory = cases / f"{index:04d}_{name}_B{batch}_S{size}_C{mask}"
+        directory.mkdir(exist_ok=True)
+        receipt = directory / "receipt.json"
+        command = [sys.executable, str(script), "--models", name, "--sizes", str(size),
+                   "--causal-modes", mask, "--rounds", str(args.rounds), "--samples", str(args.samples),
+                   "--output", str(receipt)]
+        if rope:
+            command += ["--batches", str(batch), "--trace-dir", str(directory / "traces")]
+        with (directory / "run.log").open("w") as log:
+            result = subprocess.run(command, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+        if result.returncode or not receipt.is_file():
+            raise RuntimeError("Child census failed; inspect its retained private log")
+        child = json.loads(receipt.read_text())
+        assert child["source_hash"] == source_sha256
+        if aggregate is None:
+            aggregate = {key: value for key, value in child.items() if key != "models"}
+            aggregate.update(models={}, status="running", publication_eligible=False,
+                             expected_rows=len(scope), support_source_sha256=support_sha256)
+            aggregate["protocol"].update(S=sizes, causal_modes=[value == "true" for value in masks],
+                                          collection_mode="fresh_child_process_per_shape", child_startup_in_timing=False)
+            if rope:
+                aggregate["protocol"]["B"] = batches
+        for model, data in child["models"].items():
+            aggregate["models"].setdefault(model, {"geometry": data["geometry"], "rows": []})["rows"].extend(data["rows"])
+        args.output.write_text(json.dumps(aggregate, indent=2) + "\n")
+        print(f"Fresh-process census: {index + 1}/{len(scope)} rows", flush=True)
+    rows = [row for model in aggregate["models"].values() for row in model["rows"]]
+    assert len(rows) == len(scope)
+    aggregate["status"] = "tested_pass" if all(row["status"] == "tested_pass" for row in rows) else "tested_invalid"
+    aggregate["publication_eligible"] = aggregate["status"] == "tested_pass" and not (rope and args.smoke)
+    args.output.write_text(json.dumps(aggregate, indent=2) + "\n")
