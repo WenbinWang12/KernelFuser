@@ -194,6 +194,9 @@ smoke and one tiny CUDA shape; only then enqueue the full H100/H200 sweep.
 Suggested command once the lane is implemented and pinned:
 
 ```bash
+python src/c_dlrm_correctness_smoke.py --source-commit "$(git rev-parse HEAD)" \
+  --physical-gpu 4 --output outputs/c_correctness_smoke.json
+
 python src/c_jagged_recsys_smoke.py --lane dlrm_concat_ln \
   --manifest data/abc/c_dlrm_manifest.json \
   --implementation src/c_dlrm_concat_ln.py \
