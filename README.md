@@ -26,6 +26,9 @@ session transcripts, and private paths.
 - `results/`: sanitized CSV summaries only.
 - `experiments/RUN_REQUESTS.md`: current OSU P0/P1 handoff and fail-closed
   acceptance gates.
+- `experiments/ABC_VENDOR_ANCHOR_PLAN.md`: pre-registered A/B/C follow-up
+  campaign.  B and C are implementation tasks only until their receipts pass
+  the vendor-anchor and correctness gates; this file contains no results.
 
 ## Reproduction
 

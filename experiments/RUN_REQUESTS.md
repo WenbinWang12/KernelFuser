@@ -71,3 +71,43 @@ receipts are sufficient for their current appendix/status decisions.
 Return JSON receipts, source hashes, software versions, physical GPU and
 exclusivity evidence, trace archive/manifest, and sanitized CSV. Do not return
 weights, credentials, private host paths, or stale withdrawn E2 receipts.
+
+## 2026-10-14 active OSU queue
+
+The private OSU run directory uses the clean `src/e1_rope_publication_v1.py`
+source from `origin/main`.  H100 runs the full nine-geometry census on its
+assigned GPU.  H200 is split between physical GPUs 4 and 7, four geometries
+on GPU 4 and five on GPU 7, for 216 rows in total.  Physical H200 GPUs 0--3
+are prohibited.  E1 is not promoted until its JSON is complete and its row
+count, status, source hash, software versions, correctness gates, paired
+timing, retest records, traces, and exclusivity evidence are checked.
+
+Three strict E2 waiters are active (H100 GPU 0, H200 GPU 4, and H200 GPU 7).
+They start only after their corresponding E1 receipt is complete and the
+assigned GPU is free.  E2 timing is accepted only when the compiled
+candidate/reference gate and the eager full-logit correctness gate pass; a
+failed gate remains diagnostic and carries no speedup claim.
+
+### Observed status (2026-10-15)
+
+The H100 E1 receipt completed with 216/216 rows and `tested_pass`.  Its source
+hash is `b7fcae1f8fba39c920d1d5f8f7c1382f39163ea02e0c59d28472c9f443ad2272`;
+the environment is H100 NVL, PyTorch 2.11.0+cu128, Triton 3.6.0, CUDA 12.8.
+All rows passed the correctness and exclusivity checks and contain four traces.
+The H100 E2 receipt completed with six rows, all
+`fail_compiled_baseline_correctness`; it contains no timing and is diagnostic
+only.  The H200 E1 shards subsequently completed with 96 rows on physical GPU
+4 and 120 rows on physical GPU 7 (216 total), both `tested_pass`, using
+PyTorch 2.5.1, Triton 3.1.0 and CUDA 12.4.  The H200 E2 waiters then produced
+six diagnostic rows per GPU; all rows failed the compiled-baseline correctness
+gate before timing.  No H200 E2 speedup is promoted.
+
+## 2026-10-15 ABC vendor-anchor follow-up
+
+The proposed high-yield open-model follow-up is specified in
+[`ABC_VENDOR_ANCHOR_PLAN.md`](ABC_VENDOR_ANCHOR_PLAN.md).  That file is the
+source of truth for the pre-registered A/B/C scopes, baselines, compiler and
+vendor-anchor gates, OSU queue commands, and receipt schema.  The current
+repository has no B or C implementation or result: do not relabel the E1
+attention-prologue rows as B, and do not use the Blackwell-only `tlx_jfa`
+sources as an H100/H200 C result.
