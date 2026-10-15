@@ -6,7 +6,8 @@ This runner deliberately fails closed.  The candidate is the TLX-backed
 the TLX namespace, or an SM90 candidate compile is unavailable, the receipt is
 ``blocked_dependency`` and no Triton fallback is silently promoted.  The
 default campaign uses public model geometries and random BF16 tensors.  It
-does not load checkpoints or record host paths, UUIDs, PIDs, or traces.
+does not load checkpoints or embed host paths, UUIDs, PIDs, or raw traces in
+the receipt (optional private traces are represented by hashes only).
 
 The candidate folds the RMSNorm weight into the GEMM weight once, outside the
 timed region (``W_fold = W * gamma[:, None]``).  The gate/up site uses a
@@ -27,6 +28,7 @@ import argparse
 import hashlib
 import importlib
 import json
+import platform
 import random
 import statistics
 from pathlib import Path
@@ -94,6 +96,7 @@ def _safe_environment() -> dict[str, Any]:
     """Return reproducibility fields without host, PID, UUID, or paths."""
     env: dict[str, Any] = {
         "torch": getattr(torch, "__version__", "unknown"),
+        "python": platform.python_version(),
         "cuda_runtime": getattr(torch.version, "cuda", None),
         "cuda_available": bool(torch.cuda.is_available()),
     }
@@ -184,6 +187,14 @@ def _make_case(module: Any, model: str, site: str, m: int, seed: int) -> dict[st
     def torch_compile_max_autotune() -> torch.Tensor:
         return compiled(x, w.t(), gamma)
 
+    def unfused_vendor_anchor() -> torch.Tensor:
+        """Standalone vendor GEMM used for the anchor gate."""
+        return torch.matmul(x, w_fold.t())
+
+    def cublas_reference() -> torch.Tensor:
+        """Explicit cuBLAS reference API for the standalone anchor check."""
+        return torch.mm(x, w_fold.t())
+
     def tlx_fused() -> torch.Tensor:
         # The checked-in SM90 port exposes ``launch(kind, x, w, out)`` and
         # performs the RMS reduction inside the TLX kernel.  ``w_tlx`` already
@@ -211,6 +222,10 @@ def _make_case(module: Any, model: str, site: str, m: int, seed: int) -> dict[st
         "torch_compile_max_autotune": torch_compile_max_autotune,
         "tlx_fused": tlx_fused,
     }
+    anchor_arms: dict[str, Callable[[], torch.Tensor]] = {
+        "unfused_vendor_anchor": unfused_vendor_anchor,
+        "cublas_reference": cublas_reference,
+    }
     # Compile the candidate before any correctness or timing arm.  A smoke
     # run therefore distinguishes a missing/unsupported TLX backend from an
     # ordinary numerical failure and can emit ``blocked_dependency``.
@@ -234,7 +249,8 @@ def _make_case(module: Any, model: str, site: str, m: int, seed: int) -> dict[st
     if not all(v["finite"] and v["allclose"] for v in correctness.values()):
         return {"geometry": geom, "correctness": correctness, "status": "tested_invalid",
                 "error": "correctness_gate_failed"}
-    return {"geometry": geom, "arms": arms, "correctness": correctness,
+    return {"geometry": geom, "arms": arms, "anchor_arms": anchor_arms,
+            "correctness": correctness,
             "reference": reference, "status": "ready"}
 
 
@@ -303,6 +319,7 @@ def _blocked_receipt(out: Path, reason: str, args: argparse.Namespace) -> None:
         "runner_source_sha256": _sha256_file(Path(__file__)),
         "environment": _safe_environment(),
         "geometry_config_sha256": GEOMETRY_CONFIG_HASH,
+        "config_manifest_sha256": GEOMETRY_CONFIG_HASH,
         "protocol": {"candidate": "TLX only; no fallback promotion",
                      "dtype": "bfloat16", "epsilon": EPS,
                      "correctness_before_timing": True,
@@ -366,7 +383,8 @@ def main() -> int:
                     if row["status"] != "ready":
                         row["error"] = case.get("error", "unknown")
                     else:
-                        timing = _time_paired(case["arms"], args.rounds,
+                        timed_arms = {**case["arms"], **case["anchor_arms"]}
+                        timing = _time_paired(timed_arms, args.rounds,
                                               args.samples, args.warmup,
                                               7109 + len(rows))
                         row["timing_us"] = timing
@@ -383,7 +401,7 @@ def main() -> int:
                         selected_timing = timing
                         if initial_speedup > 1.01:
                             retest = _time_paired(
-                                case["arms"], args.rounds, args.samples,
+                                timed_arms, args.rounds, args.samples,
                                 args.warmup, 91031 + len(rows))
                             row["retest_timing_us"] = retest
                             fastest_retest = min(retest[x]["median_us"] for x in (
@@ -393,15 +411,20 @@ def main() -> int:
                             row["retest_speedup_vs_fastest"] = fastest_retest / cand_retest
                             fastest, cand = fastest_retest, cand_retest
                             selected_timing = retest
+                        anchor_ratio = (selected_timing["unfused_vendor_anchor"]["median_us"] /
+                                        selected_timing["cublas_reference"]["median_us"])
                         row.update({"fastest_baseline_us": fastest,
                                     "initial_speedup_vs_fastest": initial_speedup,
                                     "speedup_vs_fastest": fastest / cand,
+                                    "anchor_ratio": anchor_ratio,
+                                    "anchor_gate": anchor_ratio <= 1.01,
                                     "fastest_baseline": min(
                                         ("separate_norm_cublas",
                                          "row_scale_cublas",
                                          "torch_compile_max_autotune"),
                                         key=lambda x: selected_timing[x]["median_us"]),
-                                    "status": "tested_pass"})
+                                    "status": "tested_pass" if anchor_ratio <= 1.01
+                                    else "anchor_gate_failed"})
                         csv_rows.append({
                             "model": model, "site": site, "M": m,
                             "seed": row_seed,
@@ -413,7 +436,9 @@ def main() -> int:
                             "retest": "yes" if initial_speedup > 1.01 else "no",
                             "fastest_baseline": row["fastest_baseline"],
                             "correctness_pass": True,
-                            "status": "tested_pass",
+                            "anchor_ratio": anchor_ratio,
+                            "anchor_gate": anchor_ratio <= 1.01,
+                            "status": row["status"],
                         })
                 except torch.cuda.OutOfMemoryError:  # retain declared shape
                     row = {"model": model, "site": site, "M": m,
@@ -453,6 +478,7 @@ def main() -> int:
         "source_sha256": _sha256_file(Path(__file__)),
         "runner_source_sha256": _sha256_file(Path(__file__)),
         "geometry_config_sha256": GEOMETRY_CONFIG_HASH,
+        "config_manifest_sha256": GEOMETRY_CONFIG_HASH,
         "protocol": {"dtype": "bfloat16", "epsilon": EPS,
                      "rounds": args.rounds, "samples": args.samples,
                      "warmup": args.warmup, "paired_randomized": True,
