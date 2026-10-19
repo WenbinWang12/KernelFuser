@@ -1,0 +1,5 @@
+This file intentionally contains no identifying repository URL.
+
+After the frozen snapshot is uploaded to an anonymous mirror, place the
+resulting anonymous URL in the submission form or supplementary archive. Do
+not replace this file with the original author-owned GitHub URL during review.

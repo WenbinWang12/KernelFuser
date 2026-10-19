@@ -1,0 +1,4 @@
+# CUDA wheels are platform-specific. Install a PyTorch build matching the
+# target CUDA driver, then install a compatible Triton release.
+torch>=2.5
+triton>=3.1

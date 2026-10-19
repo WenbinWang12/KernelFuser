@@ -1,0 +1,869 @@
+{
+  "lane": "dlrm_concat_ln",
+  "source": "pre-registered public shape-only manifest",
+  "feature_count": [
+    16,
+    32
+  ],
+  "embedding_dim": [
+    64,
+    128
+  ],
+  "per_feature_length": [
+    1,
+    4,
+    16,
+    64
+  ],
+  "batch": [
+    1,
+    8,
+    32,
+    128
+  ],
+  "seed": 20261015,
+  "padding_hidden_from_timing": true,
+  "flattened_index_order": [
+    "feature_count",
+    "embedding_dim",
+    "per_feature_length",
+    "batch"
+  ],
+  "rows": [
+    {
+      "row_index": 0,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 1,
+      "batch": 1,
+      "segments": 16,
+      "total_tokens": 16,
+      "offsets_sha256": "db1d6dbfdf371cbde2a9b404a12d2a3ec4bae5aaa9522b33a2b698ff79c49334",
+      "length_histogram": {
+        "1": 16
+      }
+    },
+    {
+      "row_index": 1,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 1,
+      "batch": 8,
+      "segments": 128,
+      "total_tokens": 128,
+      "offsets_sha256": "12cd8c0386858a34eb09c32203538b01416631f3427eecc29cd91c262f6bd965",
+      "length_histogram": {
+        "1": 128
+      }
+    },
+    {
+      "row_index": 2,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 1,
+      "batch": 32,
+      "segments": 512,
+      "total_tokens": 512,
+      "offsets_sha256": "e2fa44fecce7ea49a65daf6e5ade9360bac55e5b684302893efdabb618111176",
+      "length_histogram": {
+        "1": 512
+      }
+    },
+    {
+      "row_index": 3,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 1,
+      "batch": 128,
+      "segments": 2048,
+      "total_tokens": 2048,
+      "offsets_sha256": "d78da1f5783955936fc7d585970523cc9e271926d372add09c2bf599b0c723b1",
+      "length_histogram": {
+        "1": 2048
+      }
+    },
+    {
+      "row_index": 4,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 4,
+      "batch": 1,
+      "segments": 16,
+      "total_tokens": 64,
+      "offsets_sha256": "1b86d1c25c0372ef763614c090d616031184f7f509640d7aa94a2caa960e07d7",
+      "length_histogram": {
+        "4": 16
+      }
+    },
+    {
+      "row_index": 5,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 4,
+      "batch": 8,
+      "segments": 128,
+      "total_tokens": 512,
+      "offsets_sha256": "a59350e0040d22c4633b9da24f3b7a9b6ac632759ed37d76784aac053a13f3f3",
+      "length_histogram": {
+        "4": 128
+      }
+    },
+    {
+      "row_index": 6,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 4,
+      "batch": 32,
+      "segments": 512,
+      "total_tokens": 2048,
+      "offsets_sha256": "b89c4b8cd653e25a7a7591968afeb17019858e8ed9f458f9577e2ecb332aa672",
+      "length_histogram": {
+        "4": 512
+      }
+    },
+    {
+      "row_index": 7,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 4,
+      "batch": 128,
+      "segments": 2048,
+      "total_tokens": 8192,
+      "offsets_sha256": "1640ca081efbc4e7c2113af95caa2e2b75283d753d6e4b74056be8a5ab31ea93",
+      "length_histogram": {
+        "4": 2048
+      }
+    },
+    {
+      "row_index": 8,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 16,
+      "batch": 1,
+      "segments": 16,
+      "total_tokens": 256,
+      "offsets_sha256": "0a8c1e1a9db0257895a8128a2072cb1cea3628b08e8d8e7102ae4ea79a31e0f2",
+      "length_histogram": {
+        "16": 16
+      }
+    },
+    {
+      "row_index": 9,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 16,
+      "batch": 8,
+      "segments": 128,
+      "total_tokens": 2048,
+      "offsets_sha256": "be8521a75c6026bd7b08c8f51fa7231cdbd5782124f56265d86e977bfaa73429",
+      "length_histogram": {
+        "16": 128
+      }
+    },
+    {
+      "row_index": 10,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 16,
+      "batch": 32,
+      "segments": 512,
+      "total_tokens": 8192,
+      "offsets_sha256": "05efe367c04f9adb8d3d9bc419706bb222823626db613ccad92e4c31fc7c55d8",
+      "length_histogram": {
+        "16": 512
+      }
+    },
+    {
+      "row_index": 11,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 16,
+      "batch": 128,
+      "segments": 2048,
+      "total_tokens": 32768,
+      "offsets_sha256": "cb979a7bc491f6aa8bce93b5303ce2c6fb1b00d10e72481ba6652b81d30debe6",
+      "length_histogram": {
+        "16": 2048
+      }
+    },
+    {
+      "row_index": 12,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 64,
+      "batch": 1,
+      "segments": 16,
+      "total_tokens": 1024,
+      "offsets_sha256": "50e362c203b94856e0350266e81529c850081c53c56ae1ebafa38a6ee20f95b8",
+      "length_histogram": {
+        "64": 16
+      }
+    },
+    {
+      "row_index": 13,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 64,
+      "batch": 8,
+      "segments": 128,
+      "total_tokens": 8192,
+      "offsets_sha256": "2304cb28243afa21319617a2e9785004199de47272597e9cfc67858ff0cf550d",
+      "length_histogram": {
+        "64": 128
+      }
+    },
+    {
+      "row_index": 14,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 64,
+      "batch": 32,
+      "segments": 512,
+      "total_tokens": 32768,
+      "offsets_sha256": "9d14d4c28e9919bde2df455f0bd9b9850b0bd33f0e161aa029c1d06e3c46e466",
+      "length_histogram": {
+        "64": 512
+      }
+    },
+    {
+      "row_index": 15,
+      "feature_count": 16,
+      "embedding_dim": 64,
+      "per_feature_length": 64,
+      "batch": 128,
+      "segments": 2048,
+      "total_tokens": 131072,
+      "offsets_sha256": "ad61dc02c398bfcbdd710ad3ff2895f8e830989f15526fae317ce3adbd19ac27",
+      "length_histogram": {
+        "64": 2048
+      }
+    },
+    {
+      "row_index": 16,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 1,
+      "batch": 1,
+      "segments": 16,
+      "total_tokens": 16,
+      "offsets_sha256": "db1d6dbfdf371cbde2a9b404a12d2a3ec4bae5aaa9522b33a2b698ff79c49334",
+      "length_histogram": {
+        "1": 16
+      }
+    },
+    {
+      "row_index": 17,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 1,
+      "batch": 8,
+      "segments": 128,
+      "total_tokens": 128,
+      "offsets_sha256": "12cd8c0386858a34eb09c32203538b01416631f3427eecc29cd91c262f6bd965",
+      "length_histogram": {
+        "1": 128
+      }
+    },
+    {
+      "row_index": 18,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 1,
+      "batch": 32,
+      "segments": 512,
+      "total_tokens": 512,
+      "offsets_sha256": "e2fa44fecce7ea49a65daf6e5ade9360bac55e5b684302893efdabb618111176",
+      "length_histogram": {
+        "1": 512
+      }
+    },
+    {
+      "row_index": 19,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 1,
+      "batch": 128,
+      "segments": 2048,
+      "total_tokens": 2048,
+      "offsets_sha256": "d78da1f5783955936fc7d585970523cc9e271926d372add09c2bf599b0c723b1",
+      "length_histogram": {
+        "1": 2048
+      }
+    },
+    {
+      "row_index": 20,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 4,
+      "batch": 1,
+      "segments": 16,
+      "total_tokens": 64,
+      "offsets_sha256": "1b86d1c25c0372ef763614c090d616031184f7f509640d7aa94a2caa960e07d7",
+      "length_histogram": {
+        "4": 16
+      }
+    },
+    {
+      "row_index": 21,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 4,
+      "batch": 8,
+      "segments": 128,
+      "total_tokens": 512,
+      "offsets_sha256": "a59350e0040d22c4633b9da24f3b7a9b6ac632759ed37d76784aac053a13f3f3",
+      "length_histogram": {
+        "4": 128
+      }
+    },
+    {
+      "row_index": 22,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 4,
+      "batch": 32,
+      "segments": 512,
+      "total_tokens": 2048,
+      "offsets_sha256": "b89c4b8cd653e25a7a7591968afeb17019858e8ed9f458f9577e2ecb332aa672",
+      "length_histogram": {
+        "4": 512
+      }
+    },
+    {
+      "row_index": 23,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 4,
+      "batch": 128,
+      "segments": 2048,
+      "total_tokens": 8192,
+      "offsets_sha256": "1640ca081efbc4e7c2113af95caa2e2b75283d753d6e4b74056be8a5ab31ea93",
+      "length_histogram": {
+        "4": 2048
+      }
+    },
+    {
+      "row_index": 24,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 16,
+      "batch": 1,
+      "segments": 16,
+      "total_tokens": 256,
+      "offsets_sha256": "0a8c1e1a9db0257895a8128a2072cb1cea3628b08e8d8e7102ae4ea79a31e0f2",
+      "length_histogram": {
+        "16": 16
+      }
+    },
+    {
+      "row_index": 25,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 16,
+      "batch": 8,
+      "segments": 128,
+      "total_tokens": 2048,
+      "offsets_sha256": "be8521a75c6026bd7b08c8f51fa7231cdbd5782124f56265d86e977bfaa73429",
+      "length_histogram": {
+        "16": 128
+      }
+    },
+    {
+      "row_index": 26,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 16,
+      "batch": 32,
+      "segments": 512,
+      "total_tokens": 8192,
+      "offsets_sha256": "05efe367c04f9adb8d3d9bc419706bb222823626db613ccad92e4c31fc7c55d8",
+      "length_histogram": {
+        "16": 512
+      }
+    },
+    {
+      "row_index": 27,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 16,
+      "batch": 128,
+      "segments": 2048,
+      "total_tokens": 32768,
+      "offsets_sha256": "cb979a7bc491f6aa8bce93b5303ce2c6fb1b00d10e72481ba6652b81d30debe6",
+      "length_histogram": {
+        "16": 2048
+      }
+    },
+    {
+      "row_index": 28,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 64,
+      "batch": 1,
+      "segments": 16,
+      "total_tokens": 1024,
+      "offsets_sha256": "50e362c203b94856e0350266e81529c850081c53c56ae1ebafa38a6ee20f95b8",
+      "length_histogram": {
+        "64": 16
+      }
+    },
+    {
+      "row_index": 29,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 64,
+      "batch": 8,
+      "segments": 128,
+      "total_tokens": 8192,
+      "offsets_sha256": "2304cb28243afa21319617a2e9785004199de47272597e9cfc67858ff0cf550d",
+      "length_histogram": {
+        "64": 128
+      }
+    },
+    {
+      "row_index": 30,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 64,
+      "batch": 32,
+      "segments": 512,
+      "total_tokens": 32768,
+      "offsets_sha256": "9d14d4c28e9919bde2df455f0bd9b9850b0bd33f0e161aa029c1d06e3c46e466",
+      "length_histogram": {
+        "64": 512
+      }
+    },
+    {
+      "row_index": 31,
+      "feature_count": 16,
+      "embedding_dim": 128,
+      "per_feature_length": 64,
+      "batch": 128,
+      "segments": 2048,
+      "total_tokens": 131072,
+      "offsets_sha256": "ad61dc02c398bfcbdd710ad3ff2895f8e830989f15526fae317ce3adbd19ac27",
+      "length_histogram": {
+        "64": 2048
+      }
+    },
+    {
+      "row_index": 32,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 1,
+      "batch": 1,
+      "segments": 32,
+      "total_tokens": 32,
+      "offsets_sha256": "614b2e84b297317ae91eb96168255bc9f4bfa6c068abb5b510b45f3a04d8c293",
+      "length_histogram": {
+        "1": 32
+      }
+    },
+    {
+      "row_index": 33,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 1,
+      "batch": 8,
+      "segments": 256,
+      "total_tokens": 256,
+      "offsets_sha256": "c0c00afe2cfbdbd900b785a660a70bd9aa3e4dd14a2799fdf13c7a9382ff5a7a",
+      "length_histogram": {
+        "1": 256
+      }
+    },
+    {
+      "row_index": 34,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 1,
+      "batch": 32,
+      "segments": 1024,
+      "total_tokens": 1024,
+      "offsets_sha256": "093c8ba656ad988ad54b069139d0485111b4c15ba2ba2f43c713fe7eaaf3643d",
+      "length_histogram": {
+        "1": 1024
+      }
+    },
+    {
+      "row_index": 35,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 1,
+      "batch": 128,
+      "segments": 4096,
+      "total_tokens": 4096,
+      "offsets_sha256": "ab85fd17539a01e71a6f2dfa9cc544c97fb50e03afa51109b08554891589a075",
+      "length_histogram": {
+        "1": 4096
+      }
+    },
+    {
+      "row_index": 36,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 4,
+      "batch": 1,
+      "segments": 32,
+      "total_tokens": 128,
+      "offsets_sha256": "399e5e98181aa2c5a1e49b9a9d213542df5c4fa8d105ed4c264ba2972c2b582a",
+      "length_histogram": {
+        "4": 32
+      }
+    },
+    {
+      "row_index": 37,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 4,
+      "batch": 8,
+      "segments": 256,
+      "total_tokens": 1024,
+      "offsets_sha256": "fc2c2d3e8284a41d4560a400ecc50ca8e83d7627244f199e21c69f238c4308db",
+      "length_histogram": {
+        "4": 256
+      }
+    },
+    {
+      "row_index": 38,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 4,
+      "batch": 32,
+      "segments": 1024,
+      "total_tokens": 4096,
+      "offsets_sha256": "184aaf891500495284c40c9277e1a291885d6441f8e254aeaa907a7b86713a1e",
+      "length_histogram": {
+        "4": 1024
+      }
+    },
+    {
+      "row_index": 39,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 4,
+      "batch": 128,
+      "segments": 4096,
+      "total_tokens": 16384,
+      "offsets_sha256": "33f5f6671f8f8fd7cfd5d12f7c4677cdc6bd50097eb44cc6d38aa89f39bb07d4",
+      "length_histogram": {
+        "4": 4096
+      }
+    },
+    {
+      "row_index": 40,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 16,
+      "batch": 1,
+      "segments": 32,
+      "total_tokens": 512,
+      "offsets_sha256": "3243268de81f2e67438734a4a60449e37f96da6b4e985a8aa470e461d3f5008e",
+      "length_histogram": {
+        "16": 32
+      }
+    },
+    {
+      "row_index": 41,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 16,
+      "batch": 8,
+      "segments": 256,
+      "total_tokens": 4096,
+      "offsets_sha256": "58899877fc65e15ce44a3ca4e971a4100652cd99695e0d7a4836c4c38ebb4c06",
+      "length_histogram": {
+        "16": 256
+      }
+    },
+    {
+      "row_index": 42,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 16,
+      "batch": 32,
+      "segments": 1024,
+      "total_tokens": 16384,
+      "offsets_sha256": "0c7add6950b0d74f594d62e528bf2d5ebac329836589a847979f1f5ee3ee208c",
+      "length_histogram": {
+        "16": 1024
+      }
+    },
+    {
+      "row_index": 43,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 16,
+      "batch": 128,
+      "segments": 4096,
+      "total_tokens": 65536,
+      "offsets_sha256": "6c3e02eaa93dc27e8cffff38007a6df6bc382fce5eb2f7b47d8a3395cd74462b",
+      "length_histogram": {
+        "16": 4096
+      }
+    },
+    {
+      "row_index": 44,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 64,
+      "batch": 1,
+      "segments": 32,
+      "total_tokens": 2048,
+      "offsets_sha256": "34596e998d5eefd529217fdbacb431e2d2ebcdb3abe711c621882448cbec52cd",
+      "length_histogram": {
+        "64": 32
+      }
+    },
+    {
+      "row_index": 45,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 64,
+      "batch": 8,
+      "segments": 256,
+      "total_tokens": 16384,
+      "offsets_sha256": "24b0fe9c2942747626a8b74d6d9fb0ec17ac406426510413706d8b31401a13b9",
+      "length_histogram": {
+        "64": 256
+      }
+    },
+    {
+      "row_index": 46,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 64,
+      "batch": 32,
+      "segments": 1024,
+      "total_tokens": 65536,
+      "offsets_sha256": "239f93d23fa823f3332fcabac97af30302a891f9f84d63e2409eb6eee5258479",
+      "length_histogram": {
+        "64": 1024
+      }
+    },
+    {
+      "row_index": 47,
+      "feature_count": 32,
+      "embedding_dim": 64,
+      "per_feature_length": 64,
+      "batch": 128,
+      "segments": 4096,
+      "total_tokens": 262144,
+      "offsets_sha256": "84446bce7f03b39a170463d38ea6ebee155aac9d7d1afc49194dfefbf882b425",
+      "length_histogram": {
+        "64": 4096
+      }
+    },
+    {
+      "row_index": 48,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 1,
+      "batch": 1,
+      "segments": 32,
+      "total_tokens": 32,
+      "offsets_sha256": "614b2e84b297317ae91eb96168255bc9f4bfa6c068abb5b510b45f3a04d8c293",
+      "length_histogram": {
+        "1": 32
+      }
+    },
+    {
+      "row_index": 49,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 1,
+      "batch": 8,
+      "segments": 256,
+      "total_tokens": 256,
+      "offsets_sha256": "c0c00afe2cfbdbd900b785a660a70bd9aa3e4dd14a2799fdf13c7a9382ff5a7a",
+      "length_histogram": {
+        "1": 256
+      }
+    },
+    {
+      "row_index": 50,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 1,
+      "batch": 32,
+      "segments": 1024,
+      "total_tokens": 1024,
+      "offsets_sha256": "093c8ba656ad988ad54b069139d0485111b4c15ba2ba2f43c713fe7eaaf3643d",
+      "length_histogram": {
+        "1": 1024
+      }
+    },
+    {
+      "row_index": 51,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 1,
+      "batch": 128,
+      "segments": 4096,
+      "total_tokens": 4096,
+      "offsets_sha256": "ab85fd17539a01e71a6f2dfa9cc544c97fb50e03afa51109b08554891589a075",
+      "length_histogram": {
+        "1": 4096
+      }
+    },
+    {
+      "row_index": 52,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 4,
+      "batch": 1,
+      "segments": 32,
+      "total_tokens": 128,
+      "offsets_sha256": "399e5e98181aa2c5a1e49b9a9d213542df5c4fa8d105ed4c264ba2972c2b582a",
+      "length_histogram": {
+        "4": 32
+      }
+    },
+    {
+      "row_index": 53,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 4,
+      "batch": 8,
+      "segments": 256,
+      "total_tokens": 1024,
+      "offsets_sha256": "fc2c2d3e8284a41d4560a400ecc50ca8e83d7627244f199e21c69f238c4308db",
+      "length_histogram": {
+        "4": 256
+      }
+    },
+    {
+      "row_index": 54,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 4,
+      "batch": 32,
+      "segments": 1024,
+      "total_tokens": 4096,
+      "offsets_sha256": "184aaf891500495284c40c9277e1a291885d6441f8e254aeaa907a7b86713a1e",
+      "length_histogram": {
+        "4": 1024
+      }
+    },
+    {
+      "row_index": 55,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 4,
+      "batch": 128,
+      "segments": 4096,
+      "total_tokens": 16384,
+      "offsets_sha256": "33f5f6671f8f8fd7cfd5d12f7c4677cdc6bd50097eb44cc6d38aa89f39bb07d4",
+      "length_histogram": {
+        "4": 4096
+      }
+    },
+    {
+      "row_index": 56,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 16,
+      "batch": 1,
+      "segments": 32,
+      "total_tokens": 512,
+      "offsets_sha256": "3243268de81f2e67438734a4a60449e37f96da6b4e985a8aa470e461d3f5008e",
+      "length_histogram": {
+        "16": 32
+      }
+    },
+    {
+      "row_index": 57,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 16,
+      "batch": 8,
+      "segments": 256,
+      "total_tokens": 4096,
+      "offsets_sha256": "58899877fc65e15ce44a3ca4e971a4100652cd99695e0d7a4836c4c38ebb4c06",
+      "length_histogram": {
+        "16": 256
+      }
+    },
+    {
+      "row_index": 58,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 16,
+      "batch": 32,
+      "segments": 1024,
+      "total_tokens": 16384,
+      "offsets_sha256": "0c7add6950b0d74f594d62e528bf2d5ebac329836589a847979f1f5ee3ee208c",
+      "length_histogram": {
+        "16": 1024
+      }
+    },
+    {
+      "row_index": 59,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 16,
+      "batch": 128,
+      "segments": 4096,
+      "total_tokens": 65536,
+      "offsets_sha256": "6c3e02eaa93dc27e8cffff38007a6df6bc382fce5eb2f7b47d8a3395cd74462b",
+      "length_histogram": {
+        "16": 4096
+      }
+    },
+    {
+      "row_index": 60,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 64,
+      "batch": 1,
+      "segments": 32,
+      "total_tokens": 2048,
+      "offsets_sha256": "34596e998d5eefd529217fdbacb431e2d2ebcdb3abe711c621882448cbec52cd",
+      "length_histogram": {
+        "64": 32
+      }
+    },
+    {
+      "row_index": 61,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 64,
+      "batch": 8,
+      "segments": 256,
+      "total_tokens": 16384,
+      "offsets_sha256": "24b0fe9c2942747626a8b74d6d9fb0ec17ac406426510413706d8b31401a13b9",
+      "length_histogram": {
+        "64": 256
+      }
+    },
+    {
+      "row_index": 62,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 64,
+      "batch": 32,
+      "segments": 1024,
+      "total_tokens": 65536,
+      "offsets_sha256": "239f93d23fa823f3332fcabac97af30302a891f9f84d63e2409eb6eee5258479",
+      "length_histogram": {
+        "64": 1024
+      }
+    },
+    {
+      "row_index": 63,
+      "feature_count": 32,
+      "embedding_dim": 128,
+      "per_feature_length": 64,
+      "batch": 128,
+      "segments": 4096,
+      "total_tokens": 262144,
+      "offsets_sha256": "84446bce7f03b39a170463d38ea6ebee155aac9d7d1afc49194dfefbf882b425",
+      "length_histogram": {
+        "64": 4096
+      }
+    }
+  ],
+  "flattened_index_sha256": "b51622e363ec58a03f61b6b2f7ebb5246f48ed551f955ea72025f3addb640a3f",
+  "histogram_checksum": "d2228a421b44f7ad1bb59d809a43d7223b500b384b76ba52f25bf722e1f8fcac",
+  "manifest_schema": "kernelfuser-c-dlrm-manifest-v2"
+}
