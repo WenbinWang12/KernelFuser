@@ -23,6 +23,11 @@ session transcripts, and private paths.
   for audit; its withdrawn v2 receipts are not results.
 - `src/swiglu/`, `src/tlx_pilot/`, and `src/tlx_ads_sm90_port/`: reusable
   pointwise/TLX experiments with their own scope notes.
+- `src/e1_rope_refined_impl.py` and `src/e1_rope_refined_census.py`: the
+  source-audited K-once/query-fused RoPE path and its paired isolated census.
+- `src/e2e_prefill_refined.py`: a model-level Qwen3 prefill runner using the
+  same refined kernel, with correctness checks before timing and CUDA-graph
+  paired measurements.
 - `results/`: sanitized CSV summaries only.
 - `experiments/RUN_REQUESTS.md`: current OSU P0/P1 handoff and fail-closed
   acceptance gates.
@@ -100,6 +105,22 @@ isolated operator tests; original runner modes and their publication gates
 remain available. Raw receipts and profiler artifacts stay in ignored
 local output directories. The CSVs contain only sanitized performance
 fields and repository-relative source names.
+
+## Refined K-once RoPE path
+
+The refined K-once implementation is available independently of the legacy
+publication runner:
+
+```bash
+python src/e1_rope_refined_census.py \
+  --output outputs/e1-rope-refined.json \
+  --trace-dir outputs/e1-rope-refined-traces
+python src/e2e_prefill_refined.py --help
+```
+
+Both runners use the same checked-in implementation.  The model-level runner
+is a prefill diagnostic with correctness checks before timing; it is not a full
+decode or training deployment result.
 
 ## B200 ADS Blackwell snapshot diagnostics
 
