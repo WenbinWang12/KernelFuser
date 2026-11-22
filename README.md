@@ -31,6 +31,8 @@ session transcripts, and private paths.
 - `results/`: sanitized CSV summaries only.
 - `experiments/RUN_REQUESTS.md`: current OSU P0/P1 handoff and fail-closed
   acceptance gates.
+- `todo/`: experiment handoff for the paper tables and figures, including the
+  fusion taxonomy, run matrix, metrics, acceptance gates, and result schema.
 
 ## Reproduction
 
