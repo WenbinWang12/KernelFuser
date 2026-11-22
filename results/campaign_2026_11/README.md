@@ -41,7 +41,8 @@ Fused kernel against the best of: the same attention kernel after separate kerne
 | Q/K norm | H100 | 2.5.1 | 1 | 16 | 14 | 1.02-1.08x |
 | Q/K norm + RoPE | H100 | 2.5.1 | 1 | 24 | 20 | 1.04-1.15x |
 | Q/K norm | A800 | 2.5.1 | 9 | 144 | 35 | 1.01-1.04x |
-| Q/K norm + RoPE | A800 | 2.5.1 | 9 | 228 | 80 | 1.01-1.19x |
+| Q/K norm + RoPE | A800 | 2.5.1 | 9 | 216 | 80 | 1.01-1.19x |
+| Q/K norm + RoPE at 1024 to 4096 tokens | A800 | 2.5.1 | 1 | 12 | 0 | - |
 
 ## Training step on WikiText-2 with the fused loss (`training_step_wikitext2_a800.csv`)
 

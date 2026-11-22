@@ -60,7 +60,7 @@ function decode(prefix, sfx, label) {
     for (const fn of files) {
       if (/_bm\d+/.test(fn)) continue;
       const d = load(dir, fn); if (!d) continue;
-      const mode = /^census_rope/.test(fn) ? 'rope' : 'norm', gpu = GPU[(d.environment || {}).gpu] || '?', tv = torchOf(d);
+      const mode = /^census_rope_long/.test(fn) ? 'ropeLong' : /^census_rope/.test(fn) ? 'rope' : 'norm', gpu = GPU[(d.environment || {}).gpu] || '?', tv = torchOf(d);
       const model = fn.replace(/^census_(rope|norope)(_long)?_/, '').replace(/(_t211|_t215)?\.json$/, '');
       let k = 0, n = 0;
       for (const r of d.rows || []) {
@@ -82,7 +82,7 @@ function decode(prefix, sfx, label) {
     for (const B of Bs) for (const S of Ss) { const c = a.filter(x => x.B === B && x.S === S); if (!c.length) continue;
       cells.push({ B, S, n: c.length, kept: c.filter(x => x.kept).length, best: r3(gm(c.map(x => x.best))), sameAnchor: r3(gm(c.map(x => x.u))), compiled: r3(gm(c.map(x => x.c))), sdpa: r3(gm(c.map(x => x.v))),
         anchorVsCompiled: r3(gm(c.map(x => x.c / x.u))) }); }
-    DATA.census[key] = { fusion: mode === 'rope' ? 'Q/K norm + RoPE' : 'Q/K norm', gpu, torch: tv, models: [...new Set(a.map(x => x.model))].sort((x, y) => ord(x) - ord(y)), configs: a.length, kept: a.filter(x => x.kept).length,
+    DATA.census[key] = { fusion: mode === 'rope' ? 'Q/K norm + RoPE' : mode === 'ropeLong' ? 'Q/K norm + RoPE at 1024 to 4096 tokens' : 'Q/K norm', gpu, torch: tv, models: [...new Set(a.map(x => x.model))].sort((x, y) => ord(x) - ord(y)), configs: a.length, kept: a.filter(x => x.kept).length,
       keptRange: a.some(x => x.kept) ? [r3(Math.min(...a.filter(x => x.kept).map(x => x.best))), r3(Math.max(...a.filter(x => x.kept).map(x => x.best)))] : null, cells };
   }
   DATA.censusModels = perModel.sort((a, b) => a.gpu.localeCompare(b.gpu) || a.torch.localeCompare(b.torch, undefined, { numeric: true }) || ord(a.model) - ord(b.model));
