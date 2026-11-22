@@ -67,6 +67,8 @@ H100/H200 handoff remains governed by `experiments/RUN_REQUESTS.md`.
   promoted or failed receipt.
 - [`EIT_A800_STATUS.md`](EIT_A800_STATUS.md): sanitized EIT A800 queue
   snapshot, follow-up cards, and blocked boundaries.
+- [`A800_ABLATION_QUEUE.md`](A800_ABLATION_QUEUE.md): queued figure-only
+  batch/sequence/token/optimizer sweeps and plotting rules.
 
 ## Before starting a run
 

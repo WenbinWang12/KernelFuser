@@ -43,6 +43,13 @@ paired retest, and provenance checks pass. Until then the corresponding Table 2
 cells remain pending. The queue worker must record `tested_pass`, `tested_invalid`,
 or a terminal execution failure and preserve the raw reason.
 
+Sixteen additional figure-only cards are now queued for the A800s: attention
+sequence/batch sweeps for Qwen3-0.6B and Qwen3-8B, decode cache/batch sweeps,
+prefill grids, LM-head token sweeps, and Qwen3-0.6B AdamW/Muon shape sweeps.
+Their complete factor definitions and output names are in
+[`A800_ABLATION_QUEUE.md`](A800_ABLATION_QUEUE.md). They are diagnostic inputs
+for scaling plots and must not replace the canonical 100-step results.
+
 ## Blocked A800 work
 
 Do not queue a fake placeholder for a blocked architecture:
