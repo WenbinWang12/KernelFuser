@@ -5,10 +5,20 @@ paper tables and figures.  It deliberately separates **operator evidence**
 from **complete-model deployment**: an isolated kernel speedup must not be
 reported as an end-to-end model speedup.
 
-Start with [`EXPERIMENT_PLAN.md`](EXPERIMENT_PLAN.md).  Every run should return
-the receipt fields and acceptance gates in [`RESULT_SCHEMA.md`](RESULT_SCHEMA.md).
+Start with [`CLAUDE_CODEX_RUNBOOK.md`](CLAUDE_CODEX_RUNBOOK.md) when you are
+Claude or Codex executing a task.  It is the operational contract: task cards,
+real runner commands, output directories, correctness/timing gates, failure
+statuses, and the final handoff format.  Then read the concrete model and input
+contract in [`MODEL_AND_DATA_MANIFEST.md`](MODEL_AND_DATA_MANIFEST.md), the
+broader experiment/table plan in [`EXPERIMENT_PLAN.md`](EXPERIMENT_PLAN.md),
+and the field-level receipt contract in [`RESULT_SCHEMA.md`](RESULT_SCHEMA.md).
 The existing `experiments/RUN_REQUESTS.md` remains authoritative for the active
 OSU P0/P1 handoff and GPU allocation constraints.
+
+Do not start a GPU job until the owner has supplied any private checkpoint,
+tokenizer, WikiText-2 preprocessing manifest, production-model data, or
+complete-model harness required by the task.  The public checkout contains
+operator runners and sanitized receipts, not model weights or private data.
 
 ## Priority queue
 
@@ -35,6 +45,17 @@ OSU P0/P1 handoff and GPU allocation constraints.
 - [ ] **P2 — diagnostics:** compiler/resource counters, traces, rejected
   shapes, failure cases, and source/provenance audits.  These support the
   explanation but do not become speedup claims by themselves.
+
+## Files in this folder
+
+- [`CLAUDE_CODEX_RUNBOOK.md`](CLAUDE_CODEX_RUNBOOK.md): executable task cards
+  and commands for an experiment worker.
+- [`MODEL_AND_DATA_MANIFEST.md`](MODEL_AND_DATA_MANIFEST.md): model geometries,
+  synthetic inputs, checkpoint/data contracts, shape grids, and baselines.
+- [`EXPERIMENT_PLAN.md`](EXPERIMENT_PLAN.md): paper table/figure design and
+  complete experiment matrix.
+- [`RESULT_SCHEMA.md`](RESULT_SCHEMA.md): required JSON/CSV fields for a
+  promoted or failed receipt.
 
 ## Before starting a run
 

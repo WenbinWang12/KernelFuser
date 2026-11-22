@@ -14,7 +14,8 @@ the project owner before attempting the corresponding task.
 
 When Claude or Codex is assigned an experiment, follow this order:
 
-1. Read `todo/README.md`, `todo/EXPERIMENT_PLAN.md`, this file,
+1. Read `todo/README.md`, this file,
+   `todo/MODEL_AND_DATA_MANIFEST.md`, `todo/EXPERIMENT_PLAN.md`,
    `todo/RESULT_SCHEMA.md`, and the relevant `experiments/RUN_REQUESTS.md`.
 2. Inspect the current checkout and record `git rev-parse HEAD`.  Do not mix
    files from another checkout or silently use a locally modified kernel.
