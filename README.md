@@ -89,7 +89,9 @@ and the sanitized CSVs in `results/`.
 - `src/epilogue_sites.py`: `gemm_residual` offers measured H100 schedules;
   vendor `addmm` remains the fastest measured default.
 - `src/fusion_harness.py`: shared randomized device timing and compiler
-  evidence utilities used by the existing runners.
+  evidence utilities used by the existing runners.  The interface validates
+  CUDA/timing inputs, records finite shape-aware correctness metrics, sanitizes
+  evidence labels, and atomically writes compiler artifacts.
 
 Use the new refinement flags for tuning and independent verification:
 
