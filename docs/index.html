@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KernelFuser | When does GPU kernel fusion pay off?</title>
+  <meta name="description" content="KernelFuser is an evidence-driven study of GPU kernel fusion with Triton, TLX, and an LLM-guided FusionAgent.">
+  <meta property="og:title" content="KernelFuser | When does GPU kernel fusion pay off?">
+  <meta property="og:description" content="A living research artifact for profitable kernel fusion in attention, GEMM, MoE, and training workloads.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#f3f6fb">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap nav-wrap">
+      <a class="brand" href="#top">KernelFuser</a>
+      <nav aria-label="Main navigation">
+        <a href="#taxonomy">Fusion types</a>
+        <a href="#evidence">Evidence</a>
+        <a href="#reproduction">Reproduction</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="kicker">GPU kernel fusion · Triton · TLX · evidence ledger</p>
+          <h1>When does GPU kernel fusion <em>pay off?</em></h1>
+          <p class="lede">KernelFuser turns fusion from a one-shot code-generation trick into a measured decision. A FusionAgent proposes a plan, writes a kernel, checks it against an immutable harness, and dispatches it only at shapes where it is correct and faster.</p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/WenbinWang12/KernelFuser" target="_blank" rel="noopener">View on GitHub</a>
+            <a class="button secondary" href="./todo/EXPERIMENT_PLAN.md">Experiment plan</a>
+            <a class="button secondary" href="./results/RESULTS.md">Results and limits</a>
+          </div>
+          <p class="status-line"><span class="status-dot"></span> Living artifact · operator receipts public · complete-model matrix in progress</p>
+        </div>
+
+        <figure class="hero-card" aria-label="KernelFuser decision pipeline">
+          <div class="figure-label">FusionAgent decision loop</div>
+          <svg class="pipeline" viewBox="0 0 720 300" role="img" aria-labelledby="pipeline-title pipeline-desc">
+            <title id="pipeline-title">KernelFuser fusion decision pipeline</title>
+            <desc id="pipeline-desc">A model graph is profiled, the FusionAgent proposes a plan, a kernel is generated and checked, and the shape guard dispatches either the fused or original path.</desc>
+            <defs>
+              <linearGradient id="p-blue" x1="0" x2="1"><stop offset="0" stop-color="#dbeafe"/><stop offset="1" stop-color="#eff6ff"/></linearGradient>
+              <linearGradient id="p-orange" x1="0" x2="1"><stop offset="0" stop-color="#ffedd5"/><stop offset="1" stop-color="#fff7ed"/></linearGradient>
+              <linearGradient id="p-green" x1="0" x2="1"><stop offset="0" stop-color="#dcfce7"/><stop offset="1" stop-color="#f0fdf4"/></linearGradient>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8"/></marker>
+            </defs>
+            <g class="pipe-line" marker-end="url(#arrow)"><path d="M145 88 H202"/><path d="M322 88 H379"/><path d="M499 88 H556"/></g>
+            <g class="pipe-line" marker-end="url(#arrow)"><path d="M616 126 V194 H496"/><path d="M360 224 H250"/></g>
+            <g class="pipe-box blue"><rect x="20" y="54" width="125" height="68" rx="12"/><text x="82" y="82">Model graph</text><text x="82" y="103" class="sub">forward + backward</text></g>
+            <g class="pipe-box orange"><rect x="202" y="54" width="120" height="68" rx="12"/><text x="262" y="82">Profile</text><text x="262" y="103" class="sub">saved fraction f</text></g>
+            <g class="pipe-box orange"><rect x="379" y="54" width="120" height="68" rx="12"/><text x="439" y="82">FusionAgent</text><text x="439" y="103" class="sub">plan + back-off</text></g>
+            <g class="pipe-box green"><rect x="556" y="54" width="125" height="68" rx="12"/><text x="618" y="82">Kernel</text><text x="618" y="103" class="sub">Triton / TLX</text></g>
+            <g class="pipe-box blue"><rect x="360" y="194" width="136" height="60" rx="12"/><text x="428" y="220">Gate</text><text x="428" y="239" class="sub">correct + faster</text></g>
+            <g class="pipe-box green"><rect x="114" y="194" width="136" height="60" rx="12"/><text x="182" y="220">Dispatch</text><text x="182" y="239" class="sub">fused or fallback</text></g>
+            <text x="548" y="178" class="pipe-note">compile · correctness · timing</text>
+          </svg>
+          <figcaption>Every candidate is measured against a matched anchor and the strongest valid standard baseline. A rejected shape remains a baseline dispatch.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="snapshot band" id="snapshot">
+      <div class="wrap">
+        <div class="section-head"><p class="kicker">Current snapshot</p><h2>Evidence first, claims bounded</h2></div>
+        <div class="metric-grid">
+          <article class="metric"><strong>5</strong><span>finite fusion families</span><small>prologue, epilogue, multi-GEMM, memory-bound, horizontal</small></article>
+          <article class="metric"><strong>168</strong><span>refined H100 attention rows</span><small>165 repeated gains above 1% in the public refinement receipt</small></article>
+          <article class="metric"><strong>30/32</strong><span>H100 residual rows beat the Triton anchor</span><small>0/32 beat explicit cuBLAS addmm; baseline choice matters</small></article>
+          <article class="metric"><strong>2</strong><span>backends in the target matrix</span><small>Triton and TLX, matched by model, GPU, shape, and optimizer</small></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="taxonomy">
+      <div class="wrap">
+        <div class="section-head"><p class="kicker">The design space</p><h2>Five ways to remove a memory round trip</h2><p>These are graph-level families. Models and shapes instantiate a family; they do not create a new fusion type.</p></div>
+        <div class="taxonomy-grid">
+          <article class="tax-card"><span class="tax-index">01</span><h3>Prologue</h3><p>Apply normalization or position transforms after an anchor loads its input tile.</p><span class="examples">Q/K norm → attention · RMSNorm → GEMM · MoE expert norm</span></article>
+          <article class="tax-card"><span class="tax-index">02</span><h3>Epilogue</h3><p>Apply residuals, activations, or loss work to output tiles before they return to HBM.</p><span class="examples">residual → GEMM · SwiGLU → projection · loss + gradient</span></article>
+          <article class="tax-card"><span class="tax-index">03</span><h3>Multi-GEMM chain</h3><p>Keep the intermediate of two or three dependent GEMMs on chip.</p><span class="examples">two-GEMM chain · GEMM–transpose · gated MLP chain</span></article>
+          <article class="tax-card"><span class="tax-index">04</span><h3>Memory-bound chain</h3><p>Merge consecutive pointwise or reduction operators that would otherwise launch separately.</p><span class="examples">concat + LayerNorm · activation and normalization</span></article>
+          <article class="tax-card"><span class="tax-index">05</span><h3>Horizontal siblings</h3><p>Group independent sibling operators into one launch when their indexing permits it.</p><span class="examples">sparse selections · native MoE routing diagnostic</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section band" id="evidence">
+      <div class="wrap">
+        <div class="section-head"><p class="kicker">Public evidence ledger</p><h2>What the current receipts establish</h2><p>Ratios above 1 mean the fused arm is faster. Operator-level receipts are kept separate from end-to-end deployment claims.</p></div>
+        <div class="evidence-layout">
+          <div class="evidence-table-wrap">
+            <table class="evidence-table">
+              <thead><tr><th>Study</th><th>Matched result</th><th>Scope</th></tr></thead>
+              <tbody>
+                <tr><td>Q/K norm + RoPE</td><td><b>24/24</b> rows pass correctness per GPU; two B=1, S=128 rows beat the strongest arm on each device</td><td><span class="badge blue">operator</span></td></tr>
+                <tr><td>H100 attention refinement</td><td><b>165/168</b> rows repeat a gain above 1% after fresh retesting</td><td><span class="badge blue">operator</span></td></tr>
+                <tr><td>Residual epilogue</td><td><b>30/32</b> H100 and <b>32/32</b> H200 rows beat the same Triton anchor; cuBLAS remains stronger in most rows</td><td><span class="badge amber">diagnostic</span></td></tr>
+                <tr><td>B200 ADS snapshot</td><td>Source-version audit still required; public receipt is marked <b>publication_eligible=false</b></td><td><span class="badge red">held</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <figure class="chart-card">
+            <div class="figure-label">Matched-anchor vs. strongest baseline</div>
+            <svg class="mini-chart" viewBox="0 0 470 260" role="img" aria-label="Illustrative evidence chart with matched anchor and strongest baseline comparisons">
+              <line x1="56" y1="28" x2="56" y2="214" class="axis"/><line x1="56" y1="214" x2="446" y2="214" class="axis"/>
+              <line x1="56" y1="168" x2="446" y2="168" class="grid"/><line x1="56" y1="122" x2="446" y2="122" class="grid"/><line x1="56" y1="76" x2="446" y2="76" class="grid"/>
+              <text x="17" y="218" class="tick">0.0</text><text x="17" y="172" class="tick">0.5</text><text x="17" y="126" class="tick">1.0</text><text x="17" y="80" class="tick">1.5</text><text x="17" y="34" class="tick">2.0</text>
+              <rect x="92" y="112" width="30" height="102" rx="4" class="bar blue-fill"/><rect x="127" y="128" width="30" height="86" rx="4" class="bar gray-fill"/>
+              <rect x="190" y="110" width="30" height="104" rx="4" class="bar blue-fill"/><rect x="225" y="154" width="30" height="60" rx="4" class="bar gray-fill"/>
+              <rect x="288" y="105" width="30" height="109" rx="4" class="bar blue-fill"/><rect x="323" y="200" width="30" height="14" rx="4" class="bar gray-fill"/>
+              <rect x="386" y="109" width="30" height="105" rx="4" class="bar blue-fill"/><rect x="421" y="214" width="30" height="0" rx="4" class="bar gray-fill"/>
+              <text x="106" y="237" class="cat">Q/K</text><text x="198" y="237" class="cat">RoPE</text><text x="295" y="237" class="cat">resid.</text><text x="391" y="237" class="cat">MoE</text>
+              <rect x="270" y="25" width="10" height="10" rx="2" class="blue-fill"/><text x="286" y="34" class="legend-text">same anchor</text><rect x="365" y="25" width="10" height="10" rx="2" class="gray-fill"/><text x="381" y="34" class="legend-text">strongest baseline</text>
+            </svg>
+            <figcaption>Chart slot for the final Table 4 comparison. The public page keeps the baseline distinction visible rather than collapsing every number into one speedup.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="protocol">
+      <div class="wrap">
+        <div class="section-head"><p class="kicker">Measurement protocol</p><h2>One decision, two gates, explicit fallback</h2></div>
+        <div class="protocol-grid">
+          <article class="protocol-step"><span>01</span><h3>Enumerate</h3><p>Flatten the graph, identify anchors, and rank candidate fusions by saved fraction and learned overhead.</p></article>
+          <article class="protocol-step"><span>02</span><h3>Generate</h3><p>Produce Triton or TLX kernels with fixed shapes, precision, and schedule constraints.</p></article>
+          <article class="protocol-step"><span>03</span><h3>Verify</h3><p>Run correctness before timing, then alternate candidate and baseline arms with synchronized CUDA timing.</p></article>
+          <article class="protocol-step"><span>04</span><h3>Dispatch</h3><p>Install a shape guard. A candidate is deployed only when it passes correctness and beats the strongest valid baseline.</p></article>
+        </div>
+        <div class="callout"><strong>Why the distinction matters.</strong> A fused kernel can beat its own Triton anchor while losing to cuBLAS, SDPA, or a compiled path. KernelFuser records both comparisons and keeps rejected shapes on the baseline path.</div>
+      </div>
+    </section>
+
+    <section class="section band" id="reproduction">
+      <div class="wrap reproduction-grid">
+        <div>
+          <p class="kicker">Reproduction</p>
+          <h2>Start from the receipt, then run the matrix</h2>
+          <p>The public repository contains isolated runners, sanitized results, and the handoff for the complete-model matrix. The page does not turn a diagnostic receipt into an end-to-end claim.</p>
+          <div class="resource-list">
+            <a href="https://github.com/WenbinWang12/KernelFuser/tree/main/src" target="_blank" rel="noopener"><span>Code</span><small>Reusable Triton/TLX runners</small></a>
+            <a href="./results/RESULTS.md"><span>Results</span><small>Sanitized CSV summaries and boundaries</small></a>
+            <a href="./todo/README.md"><span>Experiment TODO</span><small>P0/P1/P2 handoff and acceptance gates</small></a>
+            <a href="./todo/RESULT_SCHEMA.md"><span>Receipt schema</span><small>Required provenance and metrics</small></a>
+          </div>
+        </div>
+        <aside class="matrix-card">
+          <div class="figure-label">Target matrix</div>
+          <div class="matrix-row"><span>Hardware</span><b>A800 · H100 · H200</b></div>
+          <div class="matrix-row"><span>Backend</span><b>Triton · TLX</b></div>
+          <div class="matrix-row"><span>Mode</span><b>Decode · Train</b></div>
+          <div class="matrix-row"><span>Optimizer</span><b>AdamW · Muon</b></div>
+          <div class="matrix-row"><span>Aggregate</span><b>deployed geometric mean</b></div>
+          <p class="matrix-note">Pending cells are deliberate. Every promoted row carries a source hash, correctness status, paired timing, and fresh retest.</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer"><div class="wrap"><span>KernelFuser · research artifact</span><span><a href="https://github.com/WenbinWang12/KernelFuser" target="_blank" rel="noopener">GitHub</a> · <a href="#top">Back to top</a></span></div></footer>
+</body>
+</html>

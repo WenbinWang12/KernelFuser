@@ -33,6 +33,8 @@ session transcripts, and private paths.
   acceptance gates.
 - `todo/`: experiment handoff for the paper tables and figures, including the
   fusion taxonomy, run matrix, metrics, acceptance gates, and result schema.
+- `docs/index.html`: the GitHub Pages project overview, with the fusion
+  taxonomy, public evidence snapshot, and reproduction links.
 
 ## Reproduction
 
