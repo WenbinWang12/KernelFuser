@@ -20,6 +20,13 @@ tokenizer, WikiText-2 preprocessing manifest, production-model data, or
 complete-model harness required by the task.  The public checkout contains
 operator runners and sanitized receipts, not model weights or private data.
 
+## Current execution snapshot
+
+The canonical EIT A800 matrix is receipt-complete (41/41 stages: 25
+`tested_pass`, 16 `tested_invalid`). Five explicitly named Muon follow-ups are
+queued separately; see [`EIT_A800_STATUS.md`](EIT_A800_STATUS.md). The OSU
+H100/H200 handoff remains governed by `experiments/RUN_REQUESTS.md`.
+
 ## Priority queue
 
 - [ ] **P0 — matched main matrix:** complete-model decode and training on
@@ -58,6 +65,8 @@ operator runners and sanitized receipts, not model weights or private data.
   complete experiment matrix.
 - [`RESULT_SCHEMA.md`](RESULT_SCHEMA.md): required JSON/CSV fields for a
   promoted or failed receipt.
+- [`EIT_A800_STATUS.md`](EIT_A800_STATUS.md): sanitized EIT A800 queue
+  snapshot, follow-up cards, and blocked boundaries.
 
 ## Before starting a run
 
