@@ -5,6 +5,16 @@ for the kernel-fusion study. The repository intentionally excludes manuscript
 working files, model weights, raw receipts, profiler traces, credentials,
 session transcripts, and private paths.
 
+## Project page and November 2026 campaign
+
+- Project page: `docs/` (served by GitHub Pages at https://wenbinwang12.github.io/KernelFuser/ once Pages is
+  enabled for the `docs` folder).
+- [`experiments/whole_model`](experiments/whole_model): whole-model decode steps, training steps on WikiText-2
+  with a fused loss, the attention census with the optimized fused kernel, and the queue and analysis scripts.
+  The design of the campaign is in
+  [`EXPERIMENT_DESIGN.md`](experiments/whole_model/EXPERIMENT_DESIGN.md).
+- [`results/campaign_2026_11`](results/campaign_2026_11): every measured row as CSV, with a generated summary.
+
 ## Contents
 
 - `src/e1_rope_publication_v1.py`: RoPE-aware Q/K RMSNorm+RoPE isolated runner

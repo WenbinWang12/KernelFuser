@@ -1,0 +1,71 @@
+inputs,gpu,pytorch,model,batch,cached_tokens,status,fused_ms,vs_eager,vs_compile_default,vs_compile_max_autotune,vs_same_kernels_unfused,vs_fastest_baseline,kept
+seeded token ids,A800,2.5.1,Llama-3.1-8B,1,256,tested_pass,9.9902,1.3605,1.1555,1.1353,1.007,1.007,false
+seeded token ids,A800,2.5.1,Llama-3.1-8B,1,1024,tested_pass,10.0471,1.3584,1.1551,1.1281,1.014,1.014,true
+seeded token ids,A800,2.5.1,Llama-3.1-8B,4,256,tested_pass,10.0608,1.4205,1.1789,1.1455,1.0118,1.0118,true
+seeded token ids,A800,2.5.1,Llama-3.1-8B,16,256,tested_pass,10.7667,1.4754,1.1819,1.0641,0.9946,0.9946,false
+seeded token ids,A800,2.5.1,Llama-3.1-8B,16,1024,tested_pass,11.7984,1.4236,1.1587,1.0516,0.9885,0.9885,false
+seeded token ids,A800,2.5.1,Qwen2.5-0.5B,1,256,tested_pass,1.453,2.2452,1.3268,1.2679,1.1653,1.1653,true
+seeded token ids,A800,2.5.1,Qwen2.5-0.5B,1,1024,tested_invalid,,,,,,,
+seeded token ids,A800,2.5.1,Qwen2.5-0.5B,4,256,tested_pass,1.4655,2.5178,1.4616,1.2692,1.1725,1.1725,true
+seeded token ids,A800,2.5.1,Qwen2.5-0.5B,16,256,tested_pass,1.5091,2.602,1.4556,1.235,1.1761,1.1761,true
+seeded token ids,A800,2.5.1,Qwen2.5-0.5B,16,1024,tested_pass,1.7296,2.3402,1.3504,1.1528,1.1491,1.1491,true
+seeded token ids,A800,2.5.1,Qwen2.5-1.5B,1,256,tested_pass,2.9837,1.7727,1.2526,1.1766,1.1069,1.1069,true
+seeded token ids,A800,2.5.1,Qwen2.5-1.5B,1,1024,tested_pass,3.0562,1.746,1.2371,1.1618,1.1036,1.1036,true
+seeded token ids,A800,2.5.1,Qwen2.5-1.5B,4,256,tested_pass,2.9979,1.9215,1.2877,1.1264,1.1096,1.1096,true
+seeded token ids,A800,2.5.1,Qwen2.5-1.5B,16,256,tested_pass,3.0719,1.9562,1.2573,1.128,1.1119,1.1119,true
+seeded token ids,A800,2.5.1,Qwen2.5-1.5B,16,1024,tested_pass,3.4286,1.827,1.2018,1.0914,1.1006,1.0914,true
+seeded token ids,A800,2.5.1,Qwen3-0.6B,1,256,tested_invalid,,,,,,,
+seeded token ids,A800,2.5.1,Qwen3-0.6B,1,1024,tested_pass,1.8025,2.7266,1.2181,1.211,1.1486,1.1486,true
+seeded token ids,A800,2.5.1,Qwen3-0.6B,4,256,tested_pass,1.7259,3.3802,1.6686,1.2278,1.1551,1.1551,true
+seeded token ids,A800,2.5.1,Qwen3-0.6B,16,256,tested_pass,1.9777,3.2646,1.6558,1.2677,1.1436,1.1436,true
+seeded token ids,A800,2.5.1,Qwen3-0.6B,16,1024,tested_pass,2.8355,2.5486,1.4288,1.1669,1.0975,1.0975,true
+seeded token ids,A800,2.5.1,Qwen3-1.7B,1,256,tested_pass,2.9471,2.1818,1.2473,1.2789,1.0963,1.0963,true
+seeded token ids,A800,2.5.1,Qwen3-1.7B,1,1024,tested_pass,3.0592,2.1254,1.2262,1.2624,1.0912,1.0912,true
+seeded token ids,A800,2.5.1,Qwen3-1.7B,4,256,tested_pass,2.9875,2.5106,1.5001,1.1719,1.0985,1.0985,true
+seeded token ids,A800,2.5.1,Qwen3-1.7B,16,256,tested_pass,3.2846,2.5339,1.5143,1.1982,1.0952,1.0952,true
+seeded token ids,A800,2.5.1,Qwen3-1.7B,16,1024,tested_pass,4.118,2.2106,1.4043,1.1558,1.078,1.078,true
+seeded token ids,A800,2.5.1,Qwen3-4B,1,256,tested_pass,5.9294,1.7905,1.1978,1.1487,1.0605,1.0605,true
+seeded token ids,A800,2.5.1,Qwen3-4B,1,1024,tested_pass,6.0985,1.7568,1.1796,1.1278,1.0583,1.0583,true
+seeded token ids,A800,2.5.1,Qwen3-4B,4,256,tested_pass,6.0169,1.8755,1.2316,1.1498,1.0628,1.0628,true
+seeded token ids,A800,2.5.1,Qwen3-4B,16,256,tested_pass,6.4221,1.9752,1.2918,1.1523,1.0597,1.0597,true
+seeded token ids,A800,2.5.1,Qwen3-4B,16,1024,tested_pass,7.5338,1.8274,1.2468,1.1229,1.0561,1.0561,true
+seeded token ids,A800,2.5.1,Qwen3-8B,1,256,tested_pass,9.8271,1.5223,1.1622,1.1224,1.0314,1.0314,true
+seeded token ids,A800,2.5.1,Qwen3-8B,1,1024,tested_pass,9.9564,1.5105,1.1543,1.1168,1.0306,1.0306,true
+seeded token ids,A800,2.5.1,Qwen3-8B,4,256,tested_pass,9.9209,1.5388,1.1441,1.0926,1.0318,1.0318,true
+seeded token ids,A800,2.5.1,Qwen3-8B,16,256,tested_pass,10.4146,1.6195,1.1647,1.1032,1.0391,1.0391,true
+seeded token ids,A800,2.5.1,Qwen3-8B,16,1024,tested_pass,11.4714,1.5625,1.1489,1.0933,1.0337,1.0337,true
+seeded token ids,A800,2.5.1,SmolLM2-1.7B,1,256,tested_invalid,,,,,,,
+seeded token ids,A800,2.5.1,SmolLM2-1.7B,1,1024,tested_pass,3.0301,1.7125,1.2022,1.1643,1.0799,1.0799,true
+seeded token ids,A800,2.5.1,SmolLM2-1.7B,4,256,tested_pass,2.924,1.9269,1.3465,1.1852,1.0855,1.0855,true
+seeded token ids,A800,2.5.1,SmolLM2-1.7B,16,256,tested_pass,3.3617,1.9986,1.4139,1.2666,1.078,1.078,true
+seeded token ids,A800,2.5.1,SmolLM2-1.7B,16,1024,tested_pass,4.7838,1.8201,1.4152,1.3053,1.0608,1.0608,true
+seeded token ids,A800,2.5.1,SmolLM2-135M,1,256,tested_pass,1.1212,2.7754,1.3475,1.318,1.188,1.188,true
+seeded token ids,A800,2.5.1,SmolLM2-135M,1,1024,tested_pass,1.2354,2.5461,1.2392,1.2121,1.1764,1.1764,true
+seeded token ids,A800,2.5.1,SmolLM2-135M,4,256,tested_pass,1.111,3.6273,1.8647,1.4231,1.2155,1.2155,true
+seeded token ids,A800,2.5.1,SmolLM2-135M,16,256,tested_pass,1.1498,3.6701,1.8527,1.4153,1.2176,1.2176,true
+seeded token ids,A800,2.5.1,SmolLM2-135M,16,1024,tested_pass,1.513,2.9607,1.5805,1.2468,1.1638,1.1638,true
+seeded token ids,A800,2.5.1,SmolLM2-360M,1,256,tested_pass,1.4685,2.7503,1.4814,1.423,1.1973,1.1973,true
+seeded token ids,A800,2.5.1,SmolLM2-360M,1,1024,tested_pass,1.5964,2.5511,1.378,1.3215,1.184,1.184,true
+seeded token ids,A800,2.5.1,SmolLM2-360M,4,256,tested_pass,1.4835,3.1029,1.6613,1.4531,1.2059,1.2059,true
+seeded token ids,A800,2.5.1,SmolLM2-360M,16,256,tested_pass,1.54,3.2343,1.7295,1.4397,1.2139,1.2139,true
+seeded token ids,A800,2.5.1,SmolLM2-360M,16,1024,tested_pass,1.9516,2.7661,1.5812,1.3438,1.1702,1.1702,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-0.6B,1,256,tested_pass,1.6888,2.877,1.2516,1.2373,1.163,1.163,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-0.6B,1,1024,tested_pass,1.8014,2.7307,1.2094,1.1919,1.1423,1.1423,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-0.6B,4,256,tested_pass,1.7282,3.3838,1.6675,1.2308,1.1577,1.1577,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-0.6B,16,256,tested_pass,1.976,3.2685,1.6588,1.259,1.1436,1.1436,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-0.6B,16,1024,tested_pass,2.831,2.5543,1.4328,1.1637,1.098,1.098,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-14B,1,256,tested_pass,17.2108,1.3729,1.1471,1.1304,1.0189,1.0189,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-14B,1,1024,tested_pass,17.383,1.3637,1.1419,1.1217,1.0192,1.0192,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-14B,4,256,tested_pass,17.3261,1.4145,1.1621,1.1013,1.0215,1.0215,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-14B,16,256,tested_pass,18.164,1.4965,1.195,1.0667,1.0149,1.0149,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-14B,16,1024,tested_pass,19.3756,1.4603,1.1792,1.0596,1.0137,1.0137,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-4B,1,256,tested_pass,5.911,1.7831,1.1932,1.1474,1.0543,1.0543,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-4B,1,1024,tested_pass,6.0539,1.7546,1.1812,1.1346,1.0558,1.0558,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-4B,4,256,tested_pass,5.9551,1.8754,1.2311,1.1488,1.0604,1.0604,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-4B,16,256,tested_pass,6.3985,1.9683,1.285,1.1451,1.0581,1.0581,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-4B,16,1024,tested_pass,7.4726,1.8217,1.2428,1.1216,1.053,1.053,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-8B,1,256,tested_invalid,,,,,,,
+WikiText-2 prompts,A800,2.5.1,Qwen3-8B,1,1024,tested_pass,9.958,1.5046,1.1518,1.1099,1.0299,1.0299,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-8B,4,256,tested_pass,9.916,1.5389,1.1435,1.0929,1.0305,1.0305,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-8B,16,256,tested_pass,10.3734,1.6191,1.1673,1.1053,1.0395,1.0395,true
+WikiText-2 prompts,A800,2.5.1,Qwen3-8B,16,1024,tested_pass,11.4719,1.5645,1.1497,1.0953,1.0346,1.0346,true
