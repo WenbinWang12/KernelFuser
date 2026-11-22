@@ -11,7 +11,7 @@ One new token per sequence over a key/value cache, five fused kernels per layer,
 | Inputs | Models | Rows | Valid | Kept | Kept rows vs torch.compile | Fusion alone (vs same kernels) |
 |---|---:|---:|---:|---:|---|---|
 | seeded token ids | 10 | 50 | 47 | 44 | 1.09-1.45x | 1.01-1.22x |
-| WikiText-2 prompts | 4 | 20 | 19 | 19 | 1.06-1.26x | 1.01-1.16x |
+| WikiText-2 prompts | 5 | 25 | 24 | 24 | 1.06-1.26x | 1.01-1.16x |
 
 | Model (seeded token ids) | Layers | Width | Kept | vs torch.compile | Fusion alone | vs eager |
 |---|---:|---:|---|---|---|---|
@@ -41,7 +41,7 @@ Fused kernel against the best of: the same attention kernel after separate kerne
 | Q/K norm | H100 | 2.5.1 | 1 | 16 | 14 | 1.02-1.08x |
 | Q/K norm + RoPE | H100 | 2.5.1 | 1 | 24 | 20 | 1.04-1.15x |
 | Q/K norm | A800 | 2.5.1 | 9 | 144 | 35 | 1.01-1.04x |
-| Q/K norm + RoPE | A800 | 2.5.1 | 9 | 216 | 80 | 1.01-1.19x |
+| Q/K norm + RoPE | A800 | 2.5.1 | 9 | 228 | 80 | 1.01-1.19x |
 
 ## Training step on WikiText-2 with the fused loss (`training_step_wikitext2_a800.csv`)
 
@@ -54,6 +54,7 @@ Correct: one-step gradients within 1.5x of the worse PyTorch arm's distance to a
 | Qwen3-0.6B | 0.596B | 16x256 | AdamW | 1.014 / 1.013 | 1.076 / 1.077 | 43.986, 22.644, 22.66 | yes | yes |
 | Qwen3-0.6B | 0.596B | 8x512 | AdamW | 1.014 / 1.021 | 1.076 / 1.075 | 33.393, 19.414, 19.408 | yes | yes |
 | Qwen3-0.6B | 0.596B | 4x1024 | AdamW | 1.015 / 1.014 | 1.073 / 1.073 | 27.38, 17.204, 17.203 | yes | yes |
+| Qwen3-0.6B | 0.596B | 8x512 | Muon | 1.009 / 1.009 | 1.049 / 1.049 | 33.393, 18.898, 18.891 | yes | no |
 | Qwen3-1.7B | 1.721B | 8x512 | AdamW | 1.005 / 1.006 | 1.039 / 1.039 | 25.634, 14.224, 14.223 | yes | no |
 | Qwen3-4B | 4.022B | 4x512 | AdamW | 1.000 / 1.000 | 1.015 / 1.015 | 24.194, 13.344, 13.341 | yes | no |
 | Qwen3-8B | 8.191B | 2x512 | SGD | 1.002 / 1.002 | 1.010 / 1.010 | 14.237, 13.686, 13.672 | yes | no |

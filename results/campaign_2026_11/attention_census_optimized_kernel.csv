@@ -639,3 +639,15 @@ rope,A800,2.5.1,Qwen3-8B,32,512,false,tested_pass,1.0401,0.8848,3.4234,0.8848,fa
 rope,A800,2.5.1,Qwen3-8B,1,512,true,tested_pass,1.0171,1.0904,2.9837,1.0171,false
 rope,A800,2.5.1,Qwen3-8B,8,512,true,tested_pass,1.0383,1.0035,3.8965,1.0035,false
 rope,A800,2.5.1,Qwen3-8B,32,512,true,tested_pass,1.0467,0.9694,4.1265,0.9694,false
+rope,A800,2.5.1,Qwen3-8B,1,1024,false,tested_pass,1.0661,0.8537,2.0837,0.8537,false
+rope,A800,2.5.1,Qwen3-8B,8,1024,false,tested_pass,1.0176,0.7538,2.1682,0.7538,false
+rope,A800,2.5.1,Qwen3-8B,1,1024,true,tested_pass,1.0173,0.9047,2.3626,0.9047,false
+rope,A800,2.5.1,Qwen3-8B,8,1024,true,tested_pass,1.0369,0.856,2.8202,0.856,false
+rope,A800,2.5.1,Qwen3-8B,1,2048,false,tested_pass,1.0016,0.7087,1.4703,0.7087,false
+rope,A800,2.5.1,Qwen3-8B,8,2048,false,tested_pass,1.0068,0.6731,1.4307,0.6731,false
+rope,A800,2.5.1,Qwen3-8B,1,2048,true,tested_pass,1.0145,0.7908,1.8501,0.7908,false
+rope,A800,2.5.1,Qwen3-8B,8,2048,true,tested_pass,1.0161,0.6886,1.8767,0.6886,false
+rope,A800,2.5.1,Qwen3-8B,1,4096,false,tested_pass,1.0116,0.6565,1.0533,0.6565,false
+rope,A800,2.5.1,Qwen3-8B,8,4096,false,tested_pass,0.9997,0.6244,1.006,0.6244,false
+rope,A800,2.5.1,Qwen3-8B,1,4096,true,tested_pass,1.0103,0.6572,1.2822,0.6572,false
+rope,A800,2.5.1,Qwen3-8B,8,4096,true,tested_pass,1.0093,0.6049,1.2511,0.6049,false

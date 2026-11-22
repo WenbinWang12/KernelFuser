@@ -146,7 +146,7 @@
         <thead><tr><th>Fusion</th><th>Where</th><th class="r">Fused ÷ best unfused</th><th>Why</th></tr></thead>
         <tbody>
           <tr><td>Fused attention in whole-model prefill</td><td>H200, four Qwen3 models, three PyTorch versions</td><td class="r">0.98–1.02× (2 of 24 kept)</td><td>Attention is a small share of prefill</td></tr>
-          <tr><td>Loss folded into the LM-head GEMM epilogue</td><td>A800, ten heads</td><td class="r">0.74–0.84× (0 of 20)</td><td>The Triton GEMM trails cuBLAS at this size</td></tr>
+          <tr><td>Loss folded into the LM-head GEMM epilogue</td><td>A800, fifteen heads</td><td class="r">0.68–0.84× (0 of 30)</td><td>The Triton GEMM trails cuBLAS at this size</td></tr>
           <tr><td>Fused loss in whole training steps, rows that are not kept</td><td>A800, WikiText-2</td><td class="r"><span data-fill="training.notKeptRange">0.99–1.01×</span> vs compiled (<span data-fill="training.notKeptLabel">rows</span>)</td><td>Outside small models with large vocabularies, the loss is a small share of the step</td></tr>
           <tr><td>SwiGLU into the projection epilogue</td><td>H200</td><td class="r">0.78–0.93× (0 of 6)</td><td>cuBLAS followed by the activation is faster</td></tr>
           <tr><td>Normalization into the projection prologue</td><td>H200</td><td class="r">0.57–0.87× (0 of 4)</td><td>Each thread block repeats the reduction</td></tr>
