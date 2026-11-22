@@ -16,8 +16,9 @@ rows are completed gate outcomes and remain in the denominator; they are not
 missing measurements and must not be silently retried.
 
 The larger EIT queue also contains earlier protocol repeats and controller or
-distributed probes. Its latest state was 255 completed rows, with eight terminal
-invalid/failed controller or multi-GPU rows and no unclaimed canonical matrix row.
+distributed probes. Before the follow-up cards below, it had 255 completed rows,
+with eight terminal invalid/failed controller or multi-GPU rows and no unclaimed
+canonical matrix row.
 The distributed probes are compatibility diagnostics: they do not establish a
 model-parallel or communication-optimization claim.
 

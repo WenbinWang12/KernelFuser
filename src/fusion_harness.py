@@ -142,6 +142,15 @@ def _safe_label(label: str) -> str:
     return safe
 
 
+def _artifact_text(value) -> tuple[str, bytes]:
+    """Normalize Triton artifacts while preserving their exact hash bytes."""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace"), value
+    if isinstance(value, str):
+        return value, value.encode("utf-8")
+    raise TypeError(f"compiler artifact must be text or bytes, got {type(value).__name__}")
+
+
 def compiler_evidence(kernel, directory, label):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -154,10 +163,12 @@ def compiler_evidence(kernel, directory, label):
     for kind in ("ptx", "ttgir", "llir"):
         code = asm.get(kind)
         if code is not None:
+            code_text, code_bytes = _artifact_text(code)
             path = directory / f"{label}.{kind}"
-            _atomic_write(path, code)
-            info[kind + "_sha256"] = hashlib.sha256(code.encode()).hexdigest()
-    ptx = asm.get("ptx", "") or ""
+            _atomic_write(path, code_text)
+            info[kind + "_sha256"] = hashlib.sha256(code_bytes).hexdigest()
+    ptx_value = asm.get("ptx", "") or ""
+    ptx = _artifact_text(ptx_value)[0] if ptx_value else ""
     info["ptx_instruction_lines"] = {
         "wgmma": sum("wgmma.mma" in line for line in ptx.splitlines()),
         "mma_bf16": sum("mma" in line and ".bf16" in line for line in ptx.splitlines()),
