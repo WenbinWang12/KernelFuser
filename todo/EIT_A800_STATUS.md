@@ -43,9 +43,12 @@ paired retest, and provenance checks pass. Until then the corresponding Table 2
 cells remain pending. The queue worker must record `tested_pass`, `tested_invalid`,
 or a terminal execution failure and preserve the raw reason.
 
-Sixteen additional figure-only cards are now queued for the A800s: attention
+Eighteen additional figure-only cards are now queued for the A800s: attention
 sequence/batch sweeps for Qwen3-0.6B and Qwen3-8B, decode cache/batch sweeps,
 prefill grids, LM-head token sweeps, and Qwen3-0.6B AdamW/Muon shape sweeps.
+Two of these cards measure a single real checkpoint MLP module over seven row
+counts, which supplies the module-level bridge between isolated kernels and the
+complete-model rows.
 Their complete factor definitions and output names are in
 [`A800_ABLATION_QUEUE.md`](A800_ABLATION_QUEUE.md). They are diagnostic inputs
 for scaling plots and must not replace the canonical 100-step results.

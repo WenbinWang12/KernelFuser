@@ -34,6 +34,7 @@ points are missing points in plots, never zero-speedup measurements.
 | `plot_lmhead_q06_train`, `plot_lmhead_q08_train` | LM-head backward | M={256,512,1024,2048,4096,8192} |
 | `plot_lmhead_q06_loss`, `plot_lmhead_q08_loss` | LM-head forward | M={256,512,1024,2048,4096,8192} |
 | `plot_train_q06_adamw_shapes`, `plot_train_q06_muon_shapes` | Qwen3-0.6B; BxS diagnostic grid | 1/2/4/8/16/32x128, 1/2/4/8x256, 1x1024, 2x512, 4x512 |
+| `module_mlp_q06`, `module_mlp_q08` | One checkpoint MLP module; one decoder layer | M={1,2,4,8,16,32,64} rows, `--layers 1` |
 
 The five canonical Table 2 Muon follow-ups remain separate. Do not change their
 optimizer, shape, steps, or output name while these cards run.
