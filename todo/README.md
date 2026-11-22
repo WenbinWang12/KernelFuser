@@ -50,6 +50,8 @@ operator runners and sanitized receipts, not model weights or private data.
 
 - [`CLAUDE_CODEX_RUNBOOK.md`](CLAUDE_CODEX_RUNBOOK.md): executable task cards
   and commands for an experiment worker.
+- [`RUNNER_INTERFACE_AUDIT.md`](RUNNER_INTERFACE_AUDIT.md): per-runner flags,
+  input/output layouts, protocol boundaries, and common failure causes.
 - [`MODEL_AND_DATA_MANIFEST.md`](MODEL_AND_DATA_MANIFEST.md): model geometries,
   synthetic inputs, checkpoint/data contracts, shape grids, and baselines.
 - [`EXPERIMENT_PLAN.md`](EXPERIMENT_PLAN.md): paper table/figure design and

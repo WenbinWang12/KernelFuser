@@ -201,12 +201,31 @@ Run the relevant smoke command first, then the full command.  All commands are
 from the repository root.  Replace `<GPU>`, `<RUN_ID>`, and output paths with
 actual values; do not leave angle-bracket placeholders in a receipt.
 
+`experiments/RUN_REQUESTS.md` is the active allocation gate and supersedes the
+priority labels below.  In the current OSU handoff, residual E4, E3c, E6, E9,
+the Qwen3-30B-A3B E3b path, the LM-head supplement, and SwiGLU-vs-cuBLAS are
+explicitly **no-run** items; keep their existing receipts as audit evidence
+unless the owner assigns a new GPU card.  The same handoff limits the E8
+Appendix-C claim to the six H200 model-shaped rows.  Do not launch a command
+from a card that the active handoff has withdrawn, even if the card is shown
+below for reproducibility.
+
 ### P0-A — RoPE-aware isolated attention
 
 Purpose: measure Q/K RMSNorm + split-half RoPE inside the fixed attention
 anchor.  Arms are same-anchor with separate norm/RoPE, `torch.compile`/SDPA,
 and vendor SDPA.  This is forward-only operator evidence; it is not full-model
-decode or training.
+decode or training.  For the active OSU handoff, the canonical runner is
+`e1_rope_publication_v1.py`; use the refined census only when the owner opens a
+separate task card.
+
+```bash
+python src/e1_rope_publication_v1.py \
+  --output outputs/<RUN_ID>/e1_rope_smoke.json \
+  --trace-dir outputs/<RUN_ID>/smoke-traces --smoke
+```
+
+The refined census is available for a controlled follow-up:
 
 ```bash
 python src/e1_rope_refined_census.py \
@@ -214,9 +233,10 @@ python src/e1_rope_refined_census.py \
   --trace-dir outputs/<RUN_ID>/traces
 ```
 
-Optional controlled subsets use `--models`, `--sizes`, `--batches`,
-`--causal-modes`, `--bn 64|128`; `--smoke` means Qwen3-8B, B=1, S=128,
-non-causal, and is not publishable.  For the older full protocol use:
+For either runner, controlled subsets use `--models`, `--sizes`, `--batches`,
+and `--causal-modes`; only the refined census additionally accepts
+`--bn 64|128`.  `--smoke` means Qwen3-8B, B=1, S=128, non-causal, and is not
+publishable.  For the full nine-geometry sweep, use:
 
 ```bash
 python src/e1_rope_publication_v1.py \
