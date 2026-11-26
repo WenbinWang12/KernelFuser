@@ -1,170 +1,183 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KernelFuser | When does GPU kernel fusion pay off?</title>
-  <meta name="description" content="KernelFuser is an evidence-driven study of GPU kernel fusion with Triton, TLX, and an LLM-guided FusionAgent.">
-  <meta property="og:title" content="KernelFuser | When does GPU kernel fusion pay off?">
-  <meta property="og:description" content="A living research artifact for profitable kernel fusion in attention, GEMM, MoE, and training workloads.">
-  <meta property="og:type" content="website">
-  <meta name="theme-color" content="#f3f6fb">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KernelFuser: Automating Kernel Fusion with LLM Agents</title>
+<meta name="description" content="KernelFuser plans kernel fusions on PyTorch models, has LLM agents write the fused GPU kernels, and keeps a fused kernel only where it is correct and faster than the best unfused implementation." />
+<meta name="theme-color" content="#FFFFFF" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1.5' y='7' width='29' height='18' rx='5' fill='%23EEF7F0' stroke='%233FA35B' stroke-width='3'/%3E%3Ccircle cx='10' cy='16' r='4' fill='%23F2A33A'/%3E%3Crect x='16' y='12' width='10' height='8' rx='1.5' fill='%234C78A8'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./assets/style.css" />
 </head>
-<body>
-  <header class="site-header">
-    <div class="wrap nav-wrap">
-      <a class="brand" href="#top">KernelFuser</a>
-      <nav aria-label="Main navigation">
-        <a href="#taxonomy">Fusion types</a>
-        <a href="#evidence">Evidence</a>
-        <a href="#reproduction">Reproduction</a>
-      </nav>
+<body id="top">
+<header class="site-header"><div class="inner">
+  <a class="logo" href="#top" aria-label="KernelFuser">
+    <svg width="34" height="22" viewBox="0 0 34 22" aria-hidden="true"><rect x="1.5" y="1.5" width="31" height="19" rx="6" fill="#EEF7F0" stroke="#3FA35B" stroke-width="2.5"/><circle cx="10" cy="11" r="4.5" fill="#F2A33A"/><rect x="17" y="6.5" width="11" height="9" rx="2" fill="#4C78A8"/></svg>
+    <b>Kernel<span>Fuser</span></b></a>
+  <nav class="site-nav" aria-label="Main navigation"><a href="#problem">Problem</a><a href="#system">System</a><a href="#production">Production</a><a href="#open">Open-weight LLMs</a><a href="#no">Rejections</a></nav>
+</div></header>
+
+<main class="shell">
+  <nav class="toc" aria-label="Table of contents"><div class="label">Contents</div><ol>
+    <li><a href="#snapshot">Snapshot</a></li><li><a href="#problem">The problem</a></li><li><a href="#cost">When fusion pays</a></li><li><a href="#system">The system</a></li>
+    <li><a href="#production">Production result</a></li><li><a href="#open">Open-weight LLMs</a></li><li><a href="#no">Where the gates say no</a></li><li><a href="#limits">Limitations</a></li><li><a href="#artifact">Artifact</a></li></ol></nav>
+
+  <article>
+    <div class="cover">
+      <span class="eyebrow" id="eyebrow">Anonymous submission under double-blind review</span>
+      <h1><span class="brand">Kernel<span>Fuser</span></span>: Automating Kernel Fusion with LLM Agents</h1>
+      <p class="byline" id="byline">Anonymous authors</p><p class="byline small" id="affil"></p>
+
+      <div class="hero"><video controls preload="metadata" playsinline poster="./assets/overview-poster.jpg" width="1920" height="1080"
+        aria-label="Narrated overview animation of KernelFuser: separate kernels and their round trips through HBM, kernel fusion, the cost model, the four-stage agent pipeline with its two gates, the production result and the open-weight results.">
+        <source src="./assets/overview.mp4" type="video/mp4" /><track kind="captions" src="./assets/overview.vtt" srclang="en" label="English" /></video></div>
+      <p class="hero-note">Narrated overview with English captions. The narration is synthesized speech.</p>
+
+      <div class="buttons">
+        <a class="btn off" id="btn-code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6M13.5 4l-3 16"/></svg><span><b>Code</b> <small>withheld for anonymous review</small></span></a>
+        <a class="btn off" id="btn-paper"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></svg><span><b>Paper</b> <small>under review</small></span></a>
+        <a class="btn" href="#open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-7"/></svg><span><b>Results</b> <small>kept and rejected</small></span></a>
+      </div>
+
+      <p class="lede"><strong>KernelFuser automates kernel fusion for PyTorch models in training and inference.</strong> LLM agents choose the fusions and write the fused forward and backward kernels. Two gates that the agents cannot change keep a fused kernel only where it reproduces the original module and runs faster than the best unfused implementation; every other input shape runs the original path.</p>
     </div>
-  </header>
 
-  <main id="top">
-    <section class="hero">
-      <div class="wrap hero-grid">
-        <div class="hero-copy">
-          <p class="kicker">GPU kernel fusion · Triton · TLX · evidence ledger</p>
-          <h1>When does GPU kernel fusion <em>pay off?</em></h1>
-          <p class="lede">KernelFuser turns fusion from a one-shot code-generation trick into a measured decision. A FusionAgent proposes a plan, writes a kernel, checks it against an immutable harness, and dispatches it only at shapes where it is correct and faster.</p>
-          <div class="actions">
-            <a class="button primary" href="https://github.com/WenbinWang12/KernelFuser" target="_blank" rel="noopener">View on GitHub</a>
-            <a class="button secondary" href="./todo/EXPERIMENT_PLAN.md">Experiment plan</a>
-            <a class="button secondary" href="./results/RESULTS.md">Results and limits</a>
-          </div>
-          <p class="status-line"><span class="status-dot"></span> Living artifact · operator receipts public · complete-model matrix in progress</p>
-        </div>
-
-        <figure class="hero-card" aria-label="KernelFuser decision pipeline">
-          <div class="figure-label">FusionAgent decision loop</div>
-          <svg class="pipeline" viewBox="0 0 720 300" role="img" aria-labelledby="pipeline-title pipeline-desc">
-            <title id="pipeline-title">KernelFuser fusion decision pipeline</title>
-            <desc id="pipeline-desc">A model graph is profiled, the FusionAgent proposes a plan, a kernel is generated and checked, and the shape guard dispatches either the fused or original path.</desc>
-            <defs>
-              <linearGradient id="p-blue" x1="0" x2="1"><stop offset="0" stop-color="#dbeafe"/><stop offset="1" stop-color="#eff6ff"/></linearGradient>
-              <linearGradient id="p-orange" x1="0" x2="1"><stop offset="0" stop-color="#ffedd5"/><stop offset="1" stop-color="#fff7ed"/></linearGradient>
-              <linearGradient id="p-green" x1="0" x2="1"><stop offset="0" stop-color="#dcfce7"/><stop offset="1" stop-color="#f0fdf4"/></linearGradient>
-              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8"/></marker>
-            </defs>
-            <g class="pipe-line" marker-end="url(#arrow)"><path d="M145 88 H202"/><path d="M322 88 H379"/><path d="M499 88 H556"/></g>
-            <g class="pipe-line" marker-end="url(#arrow)"><path d="M616 126 V194 H496"/><path d="M360 224 H250"/></g>
-            <g class="pipe-box blue"><rect x="20" y="54" width="125" height="68" rx="12"/><text x="82" y="82">Model graph</text><text x="82" y="103" class="sub">forward + backward</text></g>
-            <g class="pipe-box orange"><rect x="202" y="54" width="120" height="68" rx="12"/><text x="262" y="82">Profile</text><text x="262" y="103" class="sub">saved fraction f</text></g>
-            <g class="pipe-box orange"><rect x="379" y="54" width="120" height="68" rx="12"/><text x="439" y="82">FusionAgent</text><text x="439" y="103" class="sub">plan + back-off</text></g>
-            <g class="pipe-box green"><rect x="556" y="54" width="125" height="68" rx="12"/><text x="618" y="82">Kernel</text><text x="618" y="103" class="sub">Triton / TLX</text></g>
-            <g class="pipe-box blue"><rect x="360" y="194" width="136" height="60" rx="12"/><text x="428" y="220">Gate</text><text x="428" y="239" class="sub">correct + faster</text></g>
-            <g class="pipe-box green"><rect x="114" y="194" width="136" height="60" rx="12"/><text x="182" y="220">Dispatch</text><text x="182" y="239" class="sub">fused or fallback</text></g>
-            <text x="548" y="178" class="pipe-note">compile · correctness · timing</text>
-          </svg>
-          <figcaption>Every candidate is measured against a matched anchor and the strongest valid standard baseline. A rejected shape remains a baseline dispatch.</figcaption>
-        </figure>
+    <section id="snapshot">
+      <h2>Snapshot</h2>
+      <div class="tiles">
+        <div class="tile"><div class="num" id="prod-gain"></div><div class="what">higher training throughput in production training of an industrial ranking model, with <span data-k="prod.headline.integrated"></span> of the <span data-k="prod.headline.generated"></span> generated kernels deployed</div><div class="where"><span data-k="prod.headline.gpu"></span> · against eager PyTorch</div></div>
+        <div class="tile"><div class="num"><span data-k="m.HcenKept"></span><small> / <span data-k="m.HcenConfigs"></span></small></div><div class="what">attention configurations in which the gates keep the fused Q/K-normalization and RoPE kernel, by <span data-k="m.HcenRange"></span>× over the best unfused implementation</div><div class="where"><span data-k="m.HcenModels"></span> Qwen3 models · H200</div></div>
+        <div class="tile"><div class="num"><span data-k="m.dtxKept"></span><small> / <span data-k="m.dtxValid"></span> valid</small></div><div class="what">whole-model decode configurations in which the fused step is kept, <span data-k="m.dtxVsPytorch"></span>× faster than the faster compiled model</div><div class="where"><span data-k="m.dtxModels"></span> models · A800</div></div>
+        <div class="tile p"><div class="num"><span data-k="s.costModel.right"></span><small> / <span data-k="s.costModel.total"></span></small></div><div class="what">gate verdicts that the cost model predicts before a kernel is written, in the attention census</div><div class="where">H100 and H200</div></div>
       </div>
     </section>
 
-    <section class="snapshot band" id="snapshot">
-      <div class="wrap">
-        <div class="section-head"><p class="kicker">Current snapshot</p><h2>Evidence first, claims bounded</h2></div>
-        <div class="metric-grid">
-          <article class="metric"><strong>5</strong><span>finite fusion families</span><small>prologue, epilogue, multi-GEMM, memory-bound, horizontal</small></article>
-          <article class="metric"><strong>168</strong><span>refined H100 attention rows</span><small>165 repeated gains above 1% in the public refinement receipt</small></article>
-          <article class="metric"><strong>30/32</strong><span>H100 residual rows beat the Triton anchor</span><small>0/32 beat explicit cuBLAS addmm; baseline choice matters</small></article>
-          <article class="metric"><strong>2</strong><span>backends in the target matrix</span><small>Triton and TLX, matched by model, GPU, shape, and optimizer</small></article>
-        </div>
+    <section id="problem">
+      <h2>Every operator is its own kernel</h2>
+      <p>In a transformer layer, memory-bound operators such as normalizations and residual additions sit between the compute-bound GEMM and attention kernels. Each one reads a tensor that the previous kernel has just written to high-bandwidth memory (HBM) and writes a new one that the next kernel reads back. In Qwen3-4B compiled with <code>torch.compile</code>, <span data-k="s.trace.memKernels"></span> of the <span data-k="s.trace.kernels"></span> kernels between one MLP block and the next attention kernel are such operators, and they take <span data-k="s.trace.share"></span> of the kernel time.</p>
+      <div class="two">
+        <figure class="framed diagram"><div id="dg-separate"></div><figcaption><b>Separate kernels.</b> Every intermediate result makes a round trip through HBM.</figcaption></figure>
+        <figure class="framed diagram"><div id="dg-fused"></div><figcaption><b>One fused kernel.</b> The operators run inside the GEMM kernel and the intermediates stay on chip.</figcaption></figure>
+      </div>
+      <p>Kernel fusion merges such an operator into a neighboring GEMM or attention kernel, the <em>anchor</em>. KernelFuser covers four fusion types.</p>
+      <div class="types">
+        <figure><img src="./assets/img/types_prologue.png" alt="Prologue: a memory-bound operator and a GEMM inside one fused kernel; the round trip between them is removed." loading="lazy" /><figcaption>Prologue</figcaption><p>applied to an input tile after the anchor loads it</p></figure>
+        <figure><img src="./assets/img/types_epilogue.png" alt="Epilogue: a GEMM followed by a memory-bound operator inside one fused kernel." loading="lazy" /><figcaption>Epilogue</figcaption><p>applied to an output tile before the anchor writes it</p></figure>
+        <figure><img src="./assets/img/types_multigemm.png" alt="Multi-GEMM chain: two GEMMs with an operator between them inside one fused kernel." loading="lazy" /><figcaption>Multi-GEMM chain</figcaption><p>intermediates of dependent GEMMs stay on chip</p></figure>
+        <figure><img src="./assets/img/types_membound.png" alt="Memory-bound chain: three consecutive memory-bound operators inside one fused kernel." loading="lazy" /><figcaption>Memory-bound chain</figcaption><p>consecutive pointwise or reduction operators in one kernel</p></figure>
       </div>
     </section>
 
-    <section class="section" id="taxonomy">
-      <div class="wrap">
-        <div class="section-head"><p class="kicker">The design space</p><h2>Five ways to remove a memory round trip</h2><p>These are graph-level families. Models and shapes instantiate a family; they do not create a new fusion type.</p></div>
-        <div class="taxonomy-grid">
-          <article class="tax-card"><span class="tax-index">01</span><h3>Prologue</h3><p>Apply normalization or position transforms after an anchor loads its input tile.</p><span class="examples">Q/K norm → attention · RMSNorm → GEMM · MoE expert norm</span></article>
-          <article class="tax-card"><span class="tax-index">02</span><h3>Epilogue</h3><p>Apply residuals, activations, or loss work to output tiles before they return to HBM.</p><span class="examples">residual → GEMM · SwiGLU → projection · loss + gradient</span></article>
-          <article class="tax-card"><span class="tax-index">03</span><h3>Multi-GEMM chain</h3><p>Keep the intermediate of two or three dependent GEMMs on chip.</p><span class="examples">two-GEMM chain · GEMM–transpose · gated MLP chain</span></article>
-          <article class="tax-card"><span class="tax-index">04</span><h3>Memory-bound chain</h3><p>Merge consecutive pointwise or reduction operators that would otherwise launch separately.</p><span class="examples">concat + LayerNorm · activation and normalization</span></article>
-          <article class="tax-card"><span class="tax-index">05</span><h3>Horizontal siblings</h3><p>Group independent sibling operators into one launch when their indexing permits it.</p><span class="examples">sparse selections · native MoE routing diagnostic</span></article>
-        </div>
+    <section id="cost">
+      <h2>A correct fused kernel is not always faster</h2>
+      <p>A fusion removes the separate kernels of the merged operators; the <em>saved fraction</em> <i>f</i> is their share of the unfused run time. Their work moves into the anchor, which becomes slower; the <em>fusion overhead</em> <i>c</i> is the relative increase of the anchor time. Both change with the input shape and the GPU, so the same fused kernel can win at one shape and lose at another.</p>
+      <div class="two">
+        <figure class="framed diagram"><div id="dg-cost1"></div></figure>
+        <figure class="framed diagram"><div id="dg-cost2"></div></figure>
+      </div>
+      <p class="muted small">Bar lengths are schematic. Blue: anchor kernel. Orange: separate memory-bound kernels. Hatched green: work that the fusion adds to the anchor.</p>
+      <div class="formula">speedup = 1 / ((1 − <i>f</i>)(1 + <i>c</i>)) &nbsp;&nbsp;·&nbsp;&nbsp; fuse if <i>f</i> &gt; <i>c</i> / (1 + <i>c</i>)</div>
+      <p>The saved fraction comes from a profile of the unfused model, and the fusion overhead carries over from the same fusion on other architectures. The cost model therefore predicts the verdict before any kernel for the target model is written. A fusion can also gain at most the <em>headroom</em> of its anchor: built on an anchor that is slower than the vendor kernel, it can lose even when it removes all of the memory traffic.</p>
+    </section>
+
+    <section id="system">
+      <h2>The agents propose, and the measurements decide</h2>
+      <figure><img src="./assets/img/overview.png" alt="Overview of KernelFuser. A PyTorch module with separate kernels enters four stages: Model Parser, Fusion Explorer, Kernel Synthesizer and Kernel Assembler. A rejected plan backs off to its sub-chains. An evidence ledger and a kernel repository connect the stages. The fused module dispatches the fused kernel at the shapes that passed and the original path otherwise." />
+        <figcaption>The four stages of KernelFuser. The evidence ledger and the kernel repository carry measurements and verified kernels across runs.</figcaption></figure>
+      <div class="steps">
+        <div class="step"><h3>Model Parser</h3><p>Captures the forward and backward graphs and profiles the unfused kernels on the target GPU.</p></div>
+        <div class="step"><h3>Fusion Explorer</h3><p>Enumerates fusion plans around each GEMM and attention kernel, largest first, and ranks them with the cost model.</p></div>
+        <div class="step"><h3>Kernel Synthesizer</h3><p>A generator agent writes the forward and backward kernels in Triton, TLX or Helion; a supervisor agent runs fixed tests and returns each failure.</p></div>
+        <div class="step"><h3>Kernel Assembler</h3><p>Admits each kernel through two gates and calls it only at the shapes where it passed. A rejected plan backs off to its sub-chains.</p></div>
+      </div>
+      <div class="gates">
+        <div class="gate"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="22" fill="#3FA35B"/><path d="M12 22l7 8 13-17" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div><h3>Correctness gate</h3><p>Compares the fused program with the unfused one at every target shape: outputs and gradients, and for the whole model the loss and the update of every trainable parameter. Tolerances are fixed before timing.</p></div></div>
+        <div class="gate"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="22" fill="#4C78A8"/><circle cx="22" cy="24" r="11" fill="none" stroke="#fff" stroke-width="3"/><path d="M22 24l5-6M22 9v4" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+          <div><h3>Performance gate</h3><p>Times the fused kernel against compiled PyTorch, the vendor library and the anchor without fusion, interleaved in CUDA graphs, and keeps it only if it beats the fastest of them by more than the noise floor (ε = <span data-k="s.gate.epsilon"></span>).</p></div></div>
       </div>
     </section>
 
-    <section class="section band" id="evidence">
-      <div class="wrap">
-        <div class="section-head"><p class="kicker">Public evidence ledger</p><h2>What the current receipts establish</h2><p>Ratios above 1 mean the fused arm is faster. Operator-level receipts are kept separate from end-to-end deployment claims.</p></div>
-        <div class="evidence-layout">
-          <div class="evidence-table-wrap">
-            <table class="evidence-table">
-              <thead><tr><th>Study</th><th>Matched result</th><th>Scope</th></tr></thead>
-              <tbody>
-                <tr><td>Q/K norm + RoPE</td><td><b>24/24</b> rows pass correctness per GPU; two B=1, S=128 rows beat the strongest arm on each device</td><td><span class="badge blue">operator</span></td></tr>
-                <tr><td>H100 attention refinement</td><td><b>165/168</b> rows repeat a gain above 1% after fresh retesting</td><td><span class="badge blue">operator</span></td></tr>
-                <tr><td>Residual epilogue</td><td><b>30/32</b> H100 and <b>32/32</b> H200 rows beat the same Triton anchor; cuBLAS remains stronger in most rows</td><td><span class="badge amber">diagnostic</span></td></tr>
-                <tr><td>B200 ADS snapshot</td><td>Source-version audit still required; public receipt is marked <b>publication_eligible=false</b></td><td><span class="badge red">held</span></td></tr>
-              </tbody>
-            </table>
-          </div>
-          <figure class="chart-card">
-            <div class="figure-label">Matched-anchor vs. strongest baseline</div>
-            <svg class="mini-chart" viewBox="0 0 470 260" role="img" aria-label="Illustrative evidence chart with matched anchor and strongest baseline comparisons">
-              <line x1="56" y1="28" x2="56" y2="214" class="axis"/><line x1="56" y1="214" x2="446" y2="214" class="axis"/>
-              <line x1="56" y1="168" x2="446" y2="168" class="grid"/><line x1="56" y1="122" x2="446" y2="122" class="grid"/><line x1="56" y1="76" x2="446" y2="76" class="grid"/>
-              <text x="17" y="218" class="tick">0.0</text><text x="17" y="172" class="tick">0.5</text><text x="17" y="126" class="tick">1.0</text><text x="17" y="80" class="tick">1.5</text><text x="17" y="34" class="tick">2.0</text>
-              <rect x="92" y="112" width="30" height="102" rx="4" class="bar blue-fill"/><rect x="127" y="128" width="30" height="86" rx="4" class="bar gray-fill"/>
-              <rect x="190" y="110" width="30" height="104" rx="4" class="bar blue-fill"/><rect x="225" y="154" width="30" height="60" rx="4" class="bar gray-fill"/>
-              <rect x="288" y="105" width="30" height="109" rx="4" class="bar blue-fill"/><rect x="323" y="200" width="30" height="14" rx="4" class="bar gray-fill"/>
-              <rect x="386" y="109" width="30" height="105" rx="4" class="bar blue-fill"/><rect x="421" y="214" width="30" height="0" rx="4" class="bar gray-fill"/>
-              <text x="106" y="237" class="cat">Q/K</text><text x="198" y="237" class="cat">RoPE</text><text x="295" y="237" class="cat">resid.</text><text x="391" y="237" class="cat">MoE</text>
-              <rect x="270" y="25" width="10" height="10" rx="2" class="blue-fill"/><text x="286" y="34" class="legend-text">same anchor</text><rect x="365" y="25" width="10" height="10" rx="2" class="gray-fill"/><text x="381" y="34" class="legend-text">strongest baseline</text>
-            </svg>
-            <figcaption>Chart slot for the final Table 4 comparison. The public page keeps the baseline distinction visible rather than collapsing every number into one speedup.</figcaption>
-          </figure>
-        </div>
+    <section id="production">
+      <h2>Production training of a ranking model</h2>
+      <p>For an industrial ranking model trained on <span data-k="prod.headline.gpu"></span> GPUs, KernelFuser generates <span data-k="prod.headline.generated"></span> fused kernels that cover all four fusion types. All <span data-k="prod.headline.correct"></span> match the unfused PyTorch implementation, and <span data-k="prod.headline.integrated"></span> run in production training.</p>
+      <div class="prod">
+        <div class="heroNum" data-k="prod.headline.result"></div>
+        <div><div class="heroCap">training throughput (QPS) against eager PyTorch</div>
+          <p class="muted small">Measured with all deployed kernels enabled, against the same eager production path; it is not the sum of the gains of the individual kernels. The model is proprietary: shapes, absolute timings and further details of the deployment are not disclosed.</p></div>
+      </div>
+      <div><div class="scroll"><table><thead><tr><th>Kernel</th><th>Backend</th><th>Status</th><th class="r">Fwd.</th><th class="r">Bwd.</th></tr></thead><tbody id="prod-body"></tbody></table></div>
+          <p class="muted small" style="margin-top:8px">Fwd. and Bwd. are kernel speedups; for the three kernels measured at the kernel level only, they are the share of the normalization time that the fusion removes.</p>
       </div>
     </section>
 
-    <section class="section" id="protocol">
-      <div class="wrap">
-        <div class="section-head"><p class="kicker">Measurement protocol</p><h2>One decision, two gates, explicit fallback</h2></div>
-        <div class="protocol-grid">
-          <article class="protocol-step"><span>01</span><h3>Enumerate</h3><p>Flatten the graph, identify anchors, and rank candidate fusions by saved fraction and learned overhead.</p></article>
-          <article class="protocol-step"><span>02</span><h3>Generate</h3><p>Produce Triton or TLX kernels with fixed shapes, precision, and schedule constraints.</p></article>
-          <article class="protocol-step"><span>03</span><h3>Verify</h3><p>Run correctness before timing, then alternate candidate and baseline arms with synchronized CUDA timing.</p></article>
-          <article class="protocol-step"><span>04</span><h3>Dispatch</h3><p>Install a shape guard. A candidate is deployed only when it passes correctness and beats the strongest valid baseline.</p></article>
-        </div>
-        <div class="callout"><strong>Why the distinction matters.</strong> A fused kernel can beat its own Triton anchor while losing to cuBLAS, SDPA, or a compiled path. KernelFuser records both comparisons and keeps rejected shapes on the baseline path.</div>
+    <section id="open">
+      <h2>Open-weight LLMs</h2>
+      <p>On open-weight models, every configuration is measured against the fastest unfused implementation: <code>torch.compile</code>, eager PyTorch with vendor kernels, and the same anchor after separate kernels. A configuration that is not kept runs the original path.</p>
+
+      <div class="card"><h3>Fused attention kernel: Q/K normalization and RoPE in the prologue</h3>
+        <p class="sub">Batch sizes 1, 8 and 32, sequence lengths from 128 to 512, with and without causal masking. One dot is one configuration.</p>
+        <div class="seg" id="seg-census" role="group" aria-label="GPU"></div>
+        <div class="legend"><span><i></i>kept by the gates</span><span><i class="o"></i>original path runs</span></div>
+        <div id="chart-census"></div><div class="bigline" id="census-big"></div>
+      </div>
+
+      <div class="card"><h3>Whole-model decode step</h3>
+        <p class="sub">One decode step from the embedding to the next-token logits, five fused kernels per decoder layer, WikiText-2 prompts on A800. The bar is the deployed geometric mean over the measured shapes against the fastest standard PyTorch path; a shape that is not kept counts as 1.000×.</p>
+        <div class="legend"><span><i></i>shape kept</span><span><i class="o"></i>rejected or invalid: original path runs</span></div>
+        <div id="chart-decode"></div>
+        <div class="bigline"><b><span data-k="m.dtxKept"></span> of <span data-k="m.dtxValid"></span> valid kept</b><span><span data-k="m.dtxVsPytorch"></span>× faster than the faster compiled model and <span data-k="m.dtxVsAnchor"></span>× faster than the same kernels without fusion, on kept shapes · <span data-k="m.dtxRows"></span> configurations of <span data-k="m.dtxModels"></span> models measured, <span data-k="m.dtxInvalid"></span> fail the correctness gate</span></div>
+      </div>
+
+      <div class="card"><h3>Training step with a fused loss</h3>
+        <p class="sub">The loss and its gradient at the LM head run as one kernel. In whole training steps on WikiText-2, the fused loss is correct in <span data-k="m.trnCorrect"></span> of <span data-k="m.trnRows"></span> configurations of <span data-k="m.trnModels"></span> models and is kept in <span data-k="m.trnKept"></span>, all of <span data-k="m.trnKeptModels"></span>, where the step is <span data-k="m.trnKeptVsCompiled"></span>× faster than the compiled step. Elsewhere the loss takes too small a share of the step.</p>
+        <details><summary>Deployed training cells on A800 (AdamW and Muon)</summary><div class="scroll"><table><thead><tr><th>Model</th><th>B×S</th><th>AdamW</th><th class="r">Deployed</th><th>B×S</th><th>Muon</th><th class="r">Deployed</th></tr></thead><tbody id="train-body"></tbody></table></div></details>
+      </div>
+
+      <figure class="framed"><img src="./assets/img/evidence_levels.png" alt="Dot plot of speedup over the fastest unfused implementation for Qwen3-0.6B and Qwen3-8B on A800 at three levels: kernel, module and end-to-end. Filled markers are shapes kept by the gate; most attention-kernel shapes and all prefill and Muon training shapes are rejected, while decode-step shapes are kept." />
+        <figcaption>Evidence at three scales on A800, for Qwen3-0.6B and Qwen3-8B. Each marker is one measured shape at its speedup over the fastest unfused implementation; a filled marker is a shape that the performance gate keeps. Fusion can win at one scale and disappear at the next.</figcaption></figure>
+      <figure class="framed"><img src="./assets/img/ablation_curves.png" alt="Four panels of controlled sweeps: attention-kernel speedup over sequence length, speedup over batch size, training-step speedup over tokens per step, and the effect of the optimization steps on H100 and H200." />
+        <figcaption>Controlled sweeps. (a) The fused attention kernel over the sequence length on A800. (b) The same kernel and the whole decode step over the batch size. (c) The training step of Qwen3-0.6B with the fused loss. (d) The optimization steps of the Kernel Synthesizer on H100 and H200. A filled marker is a shape that the gate keeps.</figcaption></figure>
+    </section>
+
+    <section id="no">
+      <h2>Where the gates say no</h2>
+      <p>The gates also show where fusion does not pay. On A800 the fused attention kernel at <span data-k="m.LsAS"></span> tokens is still <span data-k="m.LsAFusion"></span>× as fast as its own anchor, but the anchor path runs at <span data-k="m.LsAAnchor"></span>× the speed of the compiled model, so the gate rejects it. The same holds at <span data-k="s.rejected.count"></span> further fusion sites and for the residual epilogue, where the vendor kernel is the stronger baseline.</p>
+      <div class="card scroll" style="padding:6px 8px"><table><thead><tr><th>Type</th><th>Fusion site</th><th>Kept / measured</th><th>Why the gate falls back</th></tr></thead><tbody id="neg-body"></tbody></table></div>
+      <p>The gain of the fused attention kernel does not carry over to whole-model prefill either: causal prefill of Qwen3-8B runs at <span data-k="s.prefill.a800"></span>× the speed of the compiled model on A800, and four Qwen3 models stay within <span data-k="s.prefill.h200"></span>× of the fastest unfused model in all <span data-k="s.prefill.h200Configs"></span> configurations on H200.</p>
+      <div class="card"><h3>Correctness alone does not admit a candidate</h3>
+        <p class="sub">Matched controller ablation on one fixed shape (<span data-k="s.controller.setting"></span>). All modes use the same harness, templates, correctness gate and timing budget; every candidate passes correctness.</p>
+        <div class="scroll"><table><thead><tr><th>Mode</th><th class="r">Proposals</th><th class="r">Timing trials</th><th class="r">Candidate</th><th>Gate</th><th class="r">Deployed</th></tr></thead><tbody id="ctl-body"></tbody></table></div>
       </div>
     </section>
 
-    <section class="section band" id="reproduction">
-      <div class="wrap reproduction-grid">
-        <div>
-          <p class="kicker">Reproduction</p>
-          <h2>Start from the receipt, then run the matrix</h2>
-          <p>The public repository contains isolated runners, sanitized results, and the handoff for the complete-model matrix. The page does not turn a diagnostic receipt into an end-to-end claim.</p>
-          <div class="resource-list">
-            <a href="https://github.com/WenbinWang12/KernelFuser/tree/main/src" target="_blank" rel="noopener"><span>Code</span><small>Reusable Triton/TLX runners</small></a>
-            <a href="./results/RESULTS.md"><span>Results</span><small>Sanitized CSV summaries and boundaries</small></a>
-            <a href="./todo/README.md"><span>Experiment TODO</span><small>P0/P1/P2 handoff and acceptance gates</small></a>
-            <a href="./todo/RESULT_SCHEMA.md"><span>Receipt schema</span><small>Required provenance and metrics</small></a>
-          </div>
-        </div>
-        <aside class="matrix-card">
-          <div class="figure-label">Target matrix</div>
-          <div class="matrix-row"><span>Hardware</span><b>A800 · H100 · H200</b></div>
-          <div class="matrix-row"><span>Backend</span><b>Triton · TLX</b></div>
-          <div class="matrix-row"><span>Mode</span><b>Decode · Train</b></div>
-          <div class="matrix-row"><span>Optimizer</span><b>AdamW · Muon</b></div>
-          <div class="matrix-row"><span>Aggregate</span><b>deployed geometric mean</b></div>
-          <p class="matrix-note">Pending cells are deliberate. Every promoted row carries a source hash, correctness status, paired timing, and fresh retest.</p>
-        </aside>
-      </div>
+    <section id="limits">
+      <h2>Limitations</h2>
+      <ul class="limits">
+        <li>A fusion can gain at most the headroom of its anchor. The Triton attention and GEMM anchors trail SDPA and cuBLAS at larger shapes, so the whole-model gains on open-weight models are limited to decode steps and to the training loss of small models.</li>
+        <li>The end-to-end training gain is measured on one proprietary model, and the decode-step gains are measured on one GPU.</li>
+        <li>The cost model is evaluated on one fusion type on three GPUs. Its priors transfer less well across GPUs than across architectures, and on A800 it is less accurate than a sequence-length threshold.</li>
+        <li>The correctness gate is a test, not a proof. It bounds the difference in single training steps and not in a full training run.</li>
+        <li>Synthesis is not deterministic, and the variation across repeated runs of the agents is not reported.</li>
+      </ul>
     </section>
-  </main>
 
-  <footer class="site-footer"><div class="wrap"><span>KernelFuser · research artifact</span><span><a href="https://github.com/WenbinWang12/KernelFuser" target="_blank" rel="noopener">GitHub</a> · <a href="#top">Back to top</a></span></div></footer>
+    <section id="artifact">
+      <h2>Artifact</h2>
+      <p>The paper is under double-blind review, so this page carries no author names and no repository link. <a data-repo hidden href="#">Code repository</a></p>
+      <p class="muted small">Every number on this page is generated from the paper sources (<code>gen/*.tex</code> and the evaluation section) by <code>site/tools/build_data.mjs</code>. Data generated <span data-k="generated"></span>.</p>
+<pre><code>@misc{kernelfuser,
+  title  = {KernelFuser: Automating Kernel Fusion with LLM Agents},
+  author = {Anonymous},
+  note   = {Under review}
+}</code></pre>
+    </section>
+  </article>
+</main>
+
+<footer><div class="inner"><span>KernelFuser · project page</span><span><a href="#top">Back to top</a></span></div></footer>
+<script src="./assets/config.js"></script>
+<script src="./assets/data.js"></script>
+<script src="./assets/site.js"></script>
 </body>
 </html>

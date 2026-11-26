@@ -1,0 +1,101 @@
+WEBVTT
+
+1
+00:00:01.200 --> 00:00:04.929
+KernelFuser automates kernel fusion with LLM agents.
+
+2
+00:00:05.079 --> 00:00:15.146
+In a PyTorch model, matrix-multiplication kernels, called GEMMs, and attention kernels alternate with small memory-bound operators, such as normalizations and residual additions.
+
+3
+00:00:15.296 --> 00:00:21.629
+Each operator runs as its own kernel, so every intermediate result makes a round trip through high-bandwidth memory.
+
+4
+00:00:22.879 --> 00:00:29.157
+Kernel fusion merges a memory-bound operator into the neighboring kernel, so the intermediate result stays on chip.
+
+5
+00:00:29.307 --> 00:00:36.170
+There are four fusion types: a prologue, an epilogue, a multi-GEMM chain, and a memory-bound chain.
+
+6
+00:00:37.420 --> 00:00:40.559
+But a correct fused kernel is not always faster.
+
+7
+00:00:40.709 --> 00:00:46.173
+A fusion saves a fraction f of the run time, and it adds an overhead c to the host kernel.
+
+8
+00:00:46.323 --> 00:00:52.026
+It pays only if f is greater than c over one plus c, and both change with the input shape.
+
+9
+00:00:53.276 --> 00:00:55.935
+KernelFuser decides with measurements.
+
+10
+00:00:56.085 --> 00:01:01.254
+The Model Parser captures the forward and backward graphs and profiles the unfused kernels.
+
+11
+00:01:01.404 --> 00:01:07.927
+The Fusion Explorer enumerates fusion plans around each GEMM and attention kernel, and ranks them with the cost model.
+
+12
+00:01:09.177 --> 00:01:14.540
+In the Kernel Synthesizer, a generator agent writes the fused forward and backward kernels.
+
+13
+00:01:14.690 --> 00:01:19.124
+A supervisor agent runs fixed tests and sends each failed test back.
+
+14
+00:01:20.374 --> 00:01:24.963
+The Kernel Assembler admits a kernel through two gates that the agents cannot change.
+
+15
+00:01:25.113 --> 00:01:30.316
+The correctness gate compares outputs, gradients and weight updates with the original module.
+
+16
+00:01:30.466 --> 00:01:36.449
+The performance gate keeps the kernel only at the input shapes where it beats the fastest unfused implementation.
+
+17
+00:01:36.599 --> 00:01:42.752
+At every other shape the module runs its original path, and a rejected plan backs off to its sub-chains.
+
+18
+00:01:44.002 --> 00:01:51.025
+In production, KernelFuser generated 8 kernels for an industrial ranking model trained on B200 GPUs.
+
+19
+00:01:51.175 --> 00:01:59.214
+All 8 pass the correctness gate, and 5 of them run in production training, where together they raise training throughput by more than 10 percent.
+
+20
+00:02:00.464 --> 00:02:11.246
+On open-weight language models on an H200 GPU, the same gates keep the fused attention kernel in 118 of 144 configurations of six Qwen3 models.
+
+21
+00:02:11.396 --> 00:02:23.098
+On an A800 GPU, they keep the fused decode step in 50 of 55 valid configurations, where it runs 1.02–1.45 times faster than the faster compiled model.
+
+22
+00:02:24.348 --> 00:02:26.367
+The gates also say no.
+
+23
+00:02:26.517 --> 00:02:36.085
+They reject fused attention at long sequences on A800, and six further fusion sites, mostly because vendor kernels are faster than our anchors at larger shapes.
+
+24
+00:02:36.235 --> 00:02:39.288
+Every rejected shape runs the original path.
+
+25
+00:02:40.538 --> 00:02:44.972
+KernelFuser: the agents propose, and the measurements decide.
